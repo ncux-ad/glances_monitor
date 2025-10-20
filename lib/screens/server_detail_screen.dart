@@ -26,7 +26,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   late Set<String> _selectedEndpoints;
   String _selectedNetworkInterface = 'auto';
   List<String> _availableNetworkInterfaces = [];
-  String _selectedDetailTab = 'system';
   late TabController _tabController;
   bool _showAdvancedOptions = false;
   Map<String, bool> _endpointsAvailability = {};
@@ -122,21 +121,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     }
   }
 
-  Future<void> _onToggleMetric(String key, bool selected) async {
-    setState(() {
-      if (selected) {
-        _selectedMetrics.add(key);
-      } else {
-        _selectedMetrics.remove(key);
-      }
-    });
-    // Сохраняем выбор в хранилище
-    await StorageService.updateServer(
-      widget.server.copyWith(selectedMetrics: _selectedMetrics.toList()),
-    );
-    // Перезагружаем метрики под новый набор
-    await _loadMetrics();
-  }
 
   Future<void> _onToggleEndpoint(String ep, bool selected) async {
     // Проверяем доступность endpoint перед включением
@@ -190,6 +174,64 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     } catch (e) {
       // Игнорируем ошибки проверки endpoints
     }
+  }
+
+  void _showNetworkInterfaceSelector() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выбор сетевого интерфейса'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Выберите сетевой интерфейс для мониторинга:'),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedNetworkInterface,
+              decoration: const InputDecoration(
+                labelText: 'Сетевой интерфейс',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: 'auto',
+                  child: Text('Автоматически'),
+                ),
+                ..._availableNetworkInterfaces.map((interface) => DropdownMenuItem(
+                  value: interface,
+                  child: Text(interface),
+                )),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedNetworkInterface = value;
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: _loadNetworkInterfaces,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Обновить'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _onNetworkInterfaceChanged(_selectedNetworkInterface);
+              Navigator.of(context).pop();
+            },
+            child: const Text('Применить'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _onNetworkInterfaceChanged(String? newInterface) async {
@@ -302,7 +344,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
               _buildEndpointSelector(),
               const SizedBox(height: 12),
             ],
-            _buildNetworkInterfaceSelector(),
             const SizedBox(height: 16),
             _buildMetricsGrid(),
             const SizedBox(height: 16),
@@ -516,61 +557,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     );
   }
 
-  Widget _buildNetworkInterfaceSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Сетевой интерфейс',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _loadNetworkInterfaces,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Обновить'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedNetworkInterface,
-              decoration: const InputDecoration(
-                labelText: 'Выберите интерфейс',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                const DropdownMenuItem(
-                  value: 'auto',
-                  child: Text('Автоматически'),
-                ),
-                ..._availableNetworkInterfaces.map((iface) => DropdownMenuItem(
-                  value: iface,
-                  child: Text(iface),
-                )),
-              ],
-              onChanged: _onNetworkInterfaceChanged,
-            ),
-            if (_selectedNetworkInterface != 'auto' && _metrics?.networkInterface != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Текущий: ${_metrics!.networkInterface}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMetricsGrid() {
     if (_metrics == null || !_metrics!.isOnline) {
@@ -627,12 +613,15 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
                 subtitle: '${_metrics!.formatBytes(_metrics!.diskUsed)}/${_metrics!.formatBytes(_metrics!.diskTotal)}',
               ),
             if (selected.contains('network'))
-              MetricCard(
-                title: 'Сеть',
-                icon: '🌐',
-                value: 0,
-                unit: '',
-                subtitle: _metrics!.networkInterface,
+              GestureDetector(
+                onTap: () => _showNetworkInterfaceSelector(),
+                child: MetricCard(
+                  title: 'Сеть',
+                  icon: '🌐',
+                  value: _metrics!.networkRxRate != null ? _metrics!.networkRxRate! : 0,
+                  unit: 'KB/s',
+                  subtitle: 'RX: ${_metrics!.formatBytes(_metrics!.networkRx)}\nTX: ${_metrics!.formatBytes(_metrics!.networkTx)}',
+                ),
               ),
           ],
         );
@@ -653,22 +642,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         controller: _tabController,
         tabAlignment: TabAlignment.fill,
         onTap: (index) {
-          setState(() {
-            switch (index) {
-              case 0:
-                _selectedDetailTab = 'system';
-                break;
-              case 1:
-                _selectedDetailTab = 'network';
-                break;
-              case 2:
-                _selectedDetailTab = 'storage';
-                break;
-              case 3:
-                _selectedDetailTab = 'performance';
-                break;
-            }
-          });
           // Сбрасываем scroll position при переключении вкладок
           if (_scrollController.hasClients) {
             _scrollController.jumpTo(0);
@@ -725,83 +698,25 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   }
 
   Widget _buildTabContent() {
-    // Обновляем индекс TabController в зависимости от выбранной вкладки
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_tabController.index != _getTabIndex(_selectedDetailTab)) {
-        _tabController.animateTo(_getTabIndex(_selectedDetailTab));
-      }
-    });
-    
-    Widget content;
-    switch (_selectedDetailTab) {
-      case 'system':
-        content = _buildSystemTab();
-        break;
-      case 'network':
-        content = _buildNetworkTab();
-        break;
-      case 'storage':
-        content = _buildStorageTab();
-        break;
-      case 'performance':
-        content = _buildPerformanceTab();
-        break;
-      default:
-        content = _buildSystemTab();
-    }
-    
     return SingleChildScrollView(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
-      child: content,
+      child: IndexedStack(
+        index: _tabController.index,
+        children: [
+          _buildSystemTab(),
+          _buildNetworkTab(),
+          _buildStorageTab(),
+          _buildPerformanceTab(),
+        ],
+      ),
     );
   }
 
-  int _getTabIndex(String tab) {
-    switch (tab) {
-      case 'system':
-        return 0;
-      case 'network':
-        return 1;
-      case 'storage':
-        return 2;
-      case 'performance':
-        return 3;
-      default:
-        return 0;
-    }
-  }
 
   Widget _buildSystemTab() {
     return Column(
       children: [
-        // Переключатель для системной информации
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                const Icon(Icons.computer, size: 20),
-                const SizedBox(width: 8),
-                const Text('Показывать системную информацию'),
-                const Spacer(),
-                Switch(
-                  value: _selectedMetrics.contains('system') || _selectedMetrics.contains('mem') || _selectedMetrics.contains('swap'),
-                  onChanged: (value) {
-                    if (value) {
-                      _onToggleMetric('mem', true);
-                      _onToggleMetric('swap', true);
-                    } else {
-                      _onToggleMetric('mem', false);
-                      _onToggleMetric('swap', false);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
         if (_metrics!.uptimeText != null) ...[
           _buildDetailedCard(
             'Uptime',
@@ -1025,108 +940,39 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   }
 
   Widget _buildNetworkTab() {
-    return Column(
-      children: [
-        // Переключатель для сетевой информации
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                const Icon(Icons.network_check, size: 20),
-                const SizedBox(width: 8),
-                const Text('Показывать сетевую информацию'),
-                const Spacer(),
-                Switch(
-                  value: _selectedMetrics.contains('network'),
-                  onChanged: (value) => _onToggleMetric('network', value),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_selectedMetrics.contains('network'))
-          _buildNetworkDetailedCard()
-        else
-          _buildEmptyTab('Сетевые метрики не выбраны'),
-      ],
-    );
+    if (!_selectedMetrics.contains('network')) {
+      return _buildEmptyTab('Сетевые метрики не выбраны');
+    }
+    return _buildNetworkDetailedCard();
   }
 
   Widget _buildStorageTab() {
-    return Column(
-      children: [
-        // Переключатель для информации о хранилище
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                const Icon(Icons.storage, size: 20),
-                const SizedBox(width: 8),
-                const Text('Показывать информацию о хранилище'),
-                const Spacer(),
-                Switch(
-                  value: _selectedMetrics.contains('fs'),
-                  onChanged: (value) => _onToggleMetric('fs', value),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_selectedMetrics.contains('fs'))
-          _buildDetailedCard(
-            'Диск',
-            '💾',
-            [
-              'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
-              'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
-              'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
-            ],
-          )
-        else
-          _buildEmptyTab('Метрики диска не выбраны'),
+    if (!_selectedMetrics.contains('fs')) {
+      return _buildEmptyTab('Метрики диска не выбраны');
+    }
+    return _buildDetailedCard(
+      'Диск',
+      '💾',
+      [
+        'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
+        'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
+        'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
       ],
     );
   }
 
   Widget _buildPerformanceTab() {
-    return Column(
-      children: [
-        // Переключатель для производительности
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                const Icon(Icons.speed, size: 20),
-                const SizedBox(width: 8),
-                const Text('Показывать информацию о производительности'),
-                const Spacer(),
-                Switch(
-                  value: _selectedMetrics.contains('cpu'),
-                  onChanged: (value) => _onToggleMetric('cpu', value),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_selectedMetrics.contains('cpu'))
-          _buildDetailedCard(
-            'CPU',
-            '⚡',
-            [
-              'Процессор: ${_metrics!.cpuName}',
-              'Частота: ${_metrics!.cpuHz} GHz',
-              'Ядра: ${_metrics!.cpuCores}',
-              'Загрузка: ${_metrics!.cpuPercent.toStringAsFixed(1)}%',
-            ],
-          )
-        else
-          _buildEmptyTab('Метрики CPU не выбраны'),
+    if (!_selectedMetrics.contains('cpu')) {
+      return _buildEmptyTab('Метрики CPU не выбраны');
+    }
+    return _buildDetailedCard(
+      'CPU',
+      '⚡',
+      [
+        'Процессор: ${_metrics!.cpuName}',
+        'Частота: ${_metrics!.cpuHz} GHz',
+        'Ядра: ${_metrics!.cpuCores}',
+        'Загрузка: ${_metrics!.cpuPercent.toStringAsFixed(1)}%',
       ],
     );
   }
