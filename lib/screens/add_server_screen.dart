@@ -342,29 +342,35 @@ class _AddServerScreenState extends State<AddServerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Endpoint API',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _scanEndpoints,
-                  icon: const Icon(Icons.search),
-                  label: const Text('Проверить доступные'),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: _openEndpointDiagnostics,
-                  icon: const Icon(Icons.bug_report),
-                  label: const Text('Диагностика'),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: _openConnectionOptions,
-                  icon: const Icon(Icons.settings_ethernet),
-                  label: const Text('Подключение'),
+                const SizedBox(height: 8),
+                // Простая раскладка кнопок
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _scanEndpoints,
+                      icon: const Icon(Icons.search),
+                      label: const Text('Проверить'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _openEndpointDiagnostics,
+                      icon: const Icon(Icons.bug_report),
+                      label: const Text('Диагностика'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _openConnectionOptions,
+                      icon: const Icon(Icons.settings_ethernet),
+                      label: const Text('Подключение'),
+                    ),
+                  ],
                 ),
               ],
             ),

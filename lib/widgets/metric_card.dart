@@ -43,11 +43,19 @@ class MetricCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      icon,
-                      style: TextStyle(
-                        fontSize: isCompact ? 10.7 : 13.3,
-                        height: 0.67, // Уменьшаем высоту в 1.5 раза (1/1.5 = 0.67)
+                    SizedBox(
+                      height: isCompact ? 18 : 24, // Уменьшаем высоту блока в 1.5 раза
+                      child: ClipRect(
+                        child: Align(
+                          alignment: Alignment.center,
+                          heightFactor: 0.67, // Обрезаем высоту в 1.5 раза
+                          child: Text(
+                            icon,
+                            style: TextStyle(
+                              fontSize: isCompact ? 16.0 : 20.0,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 2),
@@ -153,11 +161,17 @@ class MetricCardWithDetails extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(
-                  icon,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 0.67, // Уменьшаем высоту в 1.5 раза
+                SizedBox(
+                  height: 24, // Уменьшаем высоту блока в 1.5 раза (было ~36)
+                  child: ClipRect(
+                    child: Align(
+                      alignment: Alignment.center,
+                      heightFactor: 0.67, // Обрезаем высоту в 1.5 раза
+                      child: Text(
+                        icon,
+                        style: const TextStyle(fontSize: 24),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

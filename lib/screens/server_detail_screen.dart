@@ -166,11 +166,29 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     await StorageService.updateServer(
       widget.server.copyWith(selectedEndpoints: _selectedEndpoints.toList()),
     );
+    
+    // Показываем уведомление о загрузке дополнительных данных
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(selected 
+          ? 'Загружаем данные из "$ep"...' 
+          : 'Отключен endpoint "$ep"'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    
     await _loadMetrics();
   }
 
   void _handleMenuAction(String action) async {
     switch (action) {
+      case 'network_diagnostics':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => NetworkDiagnosticsScreen(server: widget.server),
+          ),
+        );
+        break;
       case 'expert_mode':
         setState(() {
           _showAdvancedOptions = !_showAdvancedOptions;
@@ -291,6 +309,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       appBar: AppBar(
         title: Text('${widget.server.flag} ${widget.server.name}'),
         actions: [
+          // Основные кнопки - только самые важные
           IconButton(
             icon: Icon(_autoRefresh ? Icons.pause : Icons.play_arrow),
             onPressed: _toggleAutoRefresh,
@@ -299,22 +318,23 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _loadMetrics,
+            tooltip: 'Обновить данные',
           ),
-          IconButton(
-            icon: const Icon(Icons.network_check),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => NetworkDiagnosticsScreen(server: widget.server),
-                ),
-              );
-            },
-            tooltip: 'Диагностика сети',
-          ),
+          // Все остальные функции в меню
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: _handleMenuAction,
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'network_diagnostics',
+                child: Row(
+                  children: [
+                    const Icon(Icons.network_check),
+                    const SizedBox(width: 8),
+                    const Text('Диагностика сети'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'expert_mode',
                 child: Row(
@@ -509,19 +529,45 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
 
 
   Widget _buildEndpointSelector() {
+    // Используем полный список endpoints как в экране добавления сервера
+    final endpoints = GlancesApiService.knownEndpoints;
+    
+    // Создаем читаемые названия для endpoints
     final labels = <String, String>{
+      'quicklook': 'Quick Look',
+      'mem': 'Memory',
+      'memswap': 'Swap',
+      'fs': 'File System',
+      'cpu': 'CPU',
+      'network': 'Network',
+      'percpu': 'Per-CPU',
+      'load': 'Load',
       'uptime': 'Uptime',
       'system': 'System',
       'version': 'Version',
       'processcount': 'Processes',
-      'percpu': 'Per-CPU',
-      'load': 'Load',
-      'diskio': 'Disk I/O',
-      'folders': 'Folders',
+      'processlist': 'Process List',
       'sensors': 'Sensors',
       'smart': 'SMART',
       'raid': 'RAID',
       'docker': 'Docker',
+      'gpu': 'GPU',
+      'diskio': 'Disk I/O',
+      'folders': 'Folders',
+      'wifi': 'WiFi',
+      'alert': 'Alerts',
+      'connections': 'Connections',
+      'containers': 'Containers',
+      'ports': 'Ports',
+      'vms': 'VMs',
+      'amps': 'AMP',
+      'cloud': 'Cloud',
+      'ip': 'IP',
+      'irq': 'IRQ',
+      'programlist': 'Programs',
+      'psutilversion': 'psutil',
+      'help': 'Help',
+      'core': 'Core',
     };
     return Card(
       child: Padding(
@@ -529,17 +575,57 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Endpoint API (дополнительно)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            // Простой заголовок с кнопкой и счетчиком
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Endpoint API (дополнительно)',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      if (_selectedEndpoints.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${_selectedEndpoints.length} активных',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: _checkEndpointsAvailability,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Проверить'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
+            // Компактный Wrap для всех размеров экрана
             Wrap(
-              spacing: 8,
+              spacing: 6,
               runSpacing: 4,
-              children: labels.keys.map((ep) {
-                final isAvailable = _endpointsAvailability[ep] ?? true; // По умолчанию считаем доступным
+              children: endpoints.map((ep) {
+                final isAvailable = _endpointsAvailability[ep] ?? true;
                 final isSelected = _selectedEndpoints.contains(ep);
+                final displayName = labels[ep] ?? ep; // Используем читаемое название или сам endpoint
                 
                 return Tooltip(
                   message: isAvailable 
@@ -551,16 +637,20 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
                       children: [
                         Icon(
                           isAvailable ? Icons.check_circle : Icons.cancel,
-                          size: 16,
+                          size: 14,
                           color: isAvailable ? Colors.green : Colors.grey,
                         ),
                         const SizedBox(width: 4),
-                        Text(labels[ep]!),
+                        Text(
+                          displayName,
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ],
                     ),
                     selected: isSelected,
                     onSelected: isAvailable ? (val) => _onToggleEndpoint(ep, val) : null,
                     disabledColor: Colors.grey.withValues(alpha: 0.3),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 );
               }).toList(),
@@ -584,13 +674,13 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         
         if (constraints.maxWidth > 800) {
           crossAxisCount = 4;
-          childAspectRatio = 1.2;
+          childAspectRatio = 1.8; // Увеличиваем в 1.5 раза (1.2 * 1.5 = 1.8)
         } else if (constraints.maxWidth > 600) {
           crossAxisCount = 3;
-          childAspectRatio = 1.3;
+          childAspectRatio = 1.95; // Увеличиваем в 1.5 раза (1.3 * 1.5 = 1.95)
         } else {
           crossAxisCount = 2;
-          childAspectRatio = 1.2;
+          childAspectRatio = 1.8; // Увеличиваем в 1.5 раза (1.2 * 1.5 = 1.8)
         }
 
         final selected = _selectedMetrics;
