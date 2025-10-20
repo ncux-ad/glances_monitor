@@ -20,8 +20,13 @@ class SystemMetrics {
   final String networkInterface;
   final int networkRx;
   final int networkTx;
+  final int? networkRxGauge; // Кумулятивный RX трафик (FastAPI)
+  final int? networkTxGauge; // Кумулятивный TX трафик (FastAPI)
+  final double? networkRxRate; // Скорость RX в байтах/сек (FastAPI)
+  final double? networkTxRate; // Скорость TX в байтах/сек (FastAPI)
   final bool isOnline;
   final String? errorMessage;
+  final int? apiVersion; // Версия API Glances (3, 4, или null если неизвестно)
 
   // Дополнительные (опциональные) данные из других endpoint
   final String? uptimeText; // из /uptime, строка наподобие "1 day, 02:03:04"
@@ -57,8 +62,13 @@ class SystemMetrics {
     required this.networkInterface,
     required this.networkRx,
     required this.networkTx,
+    this.networkRxGauge,
+    this.networkTxGauge,
+    this.networkRxRate,
+    this.networkTxRate,
     required this.isOnline,
     this.errorMessage,
+    this.apiVersion,
     this.uptimeText,
     this.systemInfo,
     this.versionInfo,
@@ -94,6 +104,10 @@ class SystemMetrics {
       networkInterface: 'Неизвестно',
       networkRx: 0,
       networkTx: 0,
+      networkRxGauge: null,
+      networkTxGauge: null,
+      networkRxRate: null,
+      networkTxRate: null,
       isOnline: false,
       errorMessage: errorMessage,
       uptimeText: null,
@@ -170,6 +184,12 @@ class SystemMetrics {
     final txField = apiVersion == 3 ? 'tx' : 'cumulative_tx';
     final networkRx = (mainInterface[rxField] as num?)?.toInt() ?? 0;
     final networkTx = (mainInterface[txField] as num?)?.toInt() ?? 0;
+    
+    // Дополнительные поля для FastAPI
+    final networkRxGauge = (mainInterface['bytes_recv_gauge'] as num?)?.toInt();
+    final networkTxGauge = (mainInterface['bytes_sent_gauge'] as num?)?.toInt();
+    final networkRxRate = (mainInterface['bytes_recv_rate_per_sec'] as num?)?.toDouble();
+    final networkTxRate = (mainInterface['bytes_sent_rate_per_sec'] as num?)?.toDouble();
 
     return SystemMetrics(
       cpuPercent: cpuPercent,
@@ -191,7 +211,12 @@ class SystemMetrics {
       networkInterface: networkInterface,
       networkRx: networkRx,
       networkTx: networkTx,
+      networkRxGauge: networkRxGauge,
+      networkTxGauge: networkTxGauge,
+      networkRxRate: networkRxRate,
+      networkTxRate: networkTxRate,
       isOnline: true,
+      apiVersion: apiVersion,
       uptimeText: uptimeText,
       systemInfo: systemInfo,
       versionInfo: versionInfo,

@@ -115,7 +115,7 @@ class _ConnectionOptionsScreenState extends State<ConnectionOptionsScreen> {
     
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+      color: isSelected ? Colors.blue.withValues(alpha: 0.1) : null,
       child: ListTile(
         leading: Text(
           option['icon'],

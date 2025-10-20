@@ -335,6 +335,28 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
                           color: theme.colorScheme.outline,
                         ),
                       ),
+                      // Отображение версии API
+                      if (_metrics?.apiVersion != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.api,
+                              size: 16,
+                              color: _getApiVersionColor(_metrics!.apiVersion!),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'API v${_metrics!.apiVersion}',
+                              style: TextStyle(
+                                color: _getApiVersionColor(_metrics!.apiVersion!),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -489,7 +511,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedNetworkInterface,
+              initialValue: _selectedNetworkInterface,
               decoration: const InputDecoration(
                 labelText: 'Выберите интерфейс',
                 border: OutlineInputBorder(),
@@ -649,15 +671,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           ),
         const SizedBox(height: 12),
         if (_selectedMetrics.contains('network'))
-          _buildDetailedCard(
-            'Сеть',
-            '🌐',
-            [
-              'Интерфейс: ${_metrics!.networkInterface}',
-              'Получено: ${_metrics!.formatBytes(_metrics!.networkRx)}',
-              'Отправлено: ${_metrics!.formatBytes(_metrics!.networkTx)}',
-            ],
-          ),
+          _buildNetworkDetailedCard(),
         const SizedBox(height: 12),
         if (_metrics!.systemInfo != null)
           _buildDetailedCard(
@@ -728,5 +742,103 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
         ),
       ),
     );
+  }
+
+  Color _getApiVersionColor(int apiVersion) {
+    switch (apiVersion) {
+      case 4:
+        return Colors.blue; // API v4 - синий (современный)
+      case 3:
+        return Colors.orange; // API v3 - оранжевый (legacy)
+      default:
+        return Colors.grey; // Неизвестная версия - серый
+    }
+  }
+
+  Widget _buildNetworkDetailedCard() {
+    if (_metrics == null) return const SizedBox.shrink();
+    
+    final hasGaugeData = _metrics!.networkRxGauge != null || _metrics!.networkTxGauge != null;
+    final hasRateData = _metrics!.networkRxRate != null || _metrics!.networkTxRate != null;
+    final isApiV3 = _metrics!.apiVersion == 3;
+    final isApiV4 = _metrics!.apiVersion == 4;
+    
+    final List<String> networkDetails = [
+      'Интерфейс: ${_metrics!.networkInterface}',
+    ];
+    
+    // Добавляем информацию о трафике в зависимости от версии API
+    if (isApiV3) {
+      // API v3 - используем поля rx/tx
+      networkDetails.addAll([
+        '📊 Текущий RX: ${_formatBytes(_metrics!.networkRx)}',
+        '📊 Текущий TX: ${_formatBytes(_metrics!.networkTx)}',
+        'ℹ️ API v3: базовые поля rx/tx',
+      ]);
+    } else if (isApiV4) {
+      // API v4 - используем поля cumulative_rx/cumulative_tx
+      networkDetails.addAll([
+        '📊 Кумулятивный RX: ${_formatBytes(_metrics!.networkRx)}',
+        '📊 Кумулятивный TX: ${_formatBytes(_metrics!.networkTx)}',
+        'ℹ️ API v4: поля cumulative_rx/cumulative_tx',
+      ]);
+    } else {
+      // Неизвестная версия - показываем как есть
+      networkDetails.addAll([
+        '📊 Получено: ${_formatBytes(_metrics!.networkRx)}',
+        '📊 Отправлено: ${_formatBytes(_metrics!.networkTx)}',
+      ]);
+    }
+    
+    // Добавляем FastAPI данные если они есть (только для API v4 с FastAPI)
+    if (hasGaugeData) {
+      networkDetails.addAll([
+        '📈 Gauge RX: ${_formatBytes(_metrics!.networkRxGauge ?? 0)}',
+        '📈 Gauge TX: ${_formatBytes(_metrics!.networkTxGauge ?? 0)}',
+      ]);
+    }
+    
+    if (hasRateData) {
+      networkDetails.addAll([
+        '⚡ Rate RX: ${_formatBytes(_metrics!.networkRxRate ?? 0)}/сек',
+        '⚡ Rate TX: ${_formatBytes(_metrics!.networkTxRate ?? 0)}/сек',
+      ]);
+    }
+    
+    // Добавляем информацию о типе данных
+    if (hasGaugeData || hasRateData) {
+      networkDetails.add('🚀 FastAPI данные доступны');
+    } else if (isApiV3) {
+      networkDetails.add('📡 API v3: стандартные данные');
+    } else if (isApiV4) {
+      networkDetails.add('🔧 API v4: стандартные данные');
+    } else {
+      networkDetails.add('❓ Неизвестная версия API');
+    }
+    
+    // Добавляем версию API если доступна
+    if (_metrics!.apiVersion != null) {
+      networkDetails.add('API версия: ${_metrics!.apiVersion}');
+    }
+    
+    return _buildDetailedCard(
+      'Сеть',
+      '🌐',
+      networkDetails,
+    );
+  }
+
+
+  String _formatBytes(num bytes) {
+    if (bytes == 0) return '0 B';
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const k = 1024;
+    int i = 0;
+    double size = bytes.toDouble();
+    while (size >= k && i < sizes.length - 1) {
+      size /= k;
+      i++;
+    }
+    return '${size.toStringAsFixed(1)} ${sizes[i]}';
   }
 }

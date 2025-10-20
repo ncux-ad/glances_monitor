@@ -63,17 +63,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final futures = _servers.map((server) async {
       try {
-        final metrics = await _apiService.getServerMetrics(server);
-        if (mounted) {
-          setState(() {
-            _serverMetrics[server.id] = metrics;
-          });
+        // Сначала быстрая проверка доступности сервера (healthcheck)
+        final isServerOnline = await _apiService.testConnection(server);
+        
+        if (isServerOnline) {
+          // Если сервер доступен, загружаем полные метрики
+          final metrics = await _apiService.getServerMetrics(server);
+          if (mounted) {
+            setState(() {
+              _serverMetrics[server.id] = metrics;
+            });
+          }
+        } else {
+          // Сервер недоступен - создаем offline метрики
+          if (mounted) {
+            setState(() {
+              _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: 'Сервер недоступен');
+            });
+          }
         }
       } catch (e) {
         print('Ошибка загрузки метрик для ${server.name}: $e');
         if (mounted) {
           setState(() {
-            _serverMetrics[server.id] = SystemMetrics.offline();
+            _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: e.toString());
           });
         }
       }
@@ -84,6 +97,61 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _onRefresh() async {
     await _refreshAllMetrics();
+  }
+
+  /// Быстрая проверка статуса серверов без загрузки полных метрик
+  Future<void> _quickHealthCheck() async {
+    if (_servers.isEmpty) return;
+
+    final futures = _servers.map((server) async {
+      try {
+        final isOnline = await _apiService.testConnection(server);
+        if (mounted) {
+          setState(() {
+            // Обновляем только статус онлайн/офлайн, не загружая полные метрики
+            if (isOnline) {
+              // Если сервер онлайн, но метрик нет - создаем минимальные онлайн метрики
+              if (_serverMetrics[server.id] == null || !_serverMetrics[server.id]!.isOnline) {
+                _serverMetrics[server.id] = SystemMetrics(
+                  cpuPercent: 0.0,
+                  memPercent: 0.0,
+                  diskPercent: 0.0,
+                  swapPercent: 0.0,
+                  memTotal: 0,
+                  memUsed: 0,
+                  memFree: 0,
+                  swapTotal: 0,
+                  swapUsed: 0,
+                  swapFree: 0,
+                  diskTotal: 0,
+                  diskUsed: 0,
+                  diskFree: 0,
+                  cpuName: 'Проверка...',
+                  cpuHz: 0.0,
+                  cpuCores: 0,
+                  networkInterface: 'Проверка...',
+                  networkRx: 0,
+                  networkTx: 0,
+                  isOnline: true,
+                  apiVersion: null, // Будет определен при полной загрузке
+                );
+              }
+            } else {
+              // Сервер офлайн
+              _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: 'Сервер недоступен');
+            }
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: e.toString());
+          });
+        }
+      }
+    });
+
+    await Future.wait(futures);
   }
 
   void _addServer() async {
@@ -170,6 +238,11 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: theme.colorScheme.inversePrimary,
         actions: [
           IconButton(
+            icon: const Icon(Icons.health_and_safety),
+            onPressed: _isLoading ? null : _quickHealthCheck,
+            tooltip: 'Быстрая проверка статуса',
+          ),
+          IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: _showAbout,
             tooltip: 'О программе',
@@ -177,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _onRefresh,
+            tooltip: 'Полное обновление',
           ),
         ],
       ),

@@ -276,12 +276,12 @@ class _AddServerScreenState extends State<AddServerScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                      ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                       : Colors.transparent,
                   border: Border.all(
                     color: isSelected
                         ? Theme.of(context).colorScheme.primary
-                        : Colors.grey.withOpacity(0.3),
+                        : Colors.grey.withValues(alpha: 0.3),
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -375,8 +375,8 @@ class _AddServerScreenState extends State<AddServerScreen> {
               children: endpoints.map((ep) {
                 final available = _endpointAvailable[ep];
                 Color? chipColor;
-                if (available == true) chipColor = Colors.green.withOpacity(0.12);
-                if (available == false) chipColor = Colors.red.withOpacity(0.10);
+                if (available == true) chipColor = Colors.green.withValues(alpha: 0.12);
+                if (available == false) chipColor = Colors.red.withValues(alpha: 0.10);
                 return FilterChip(
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -648,7 +648,7 @@ class _AddServerScreenState extends State<AddServerScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedNetworkInterface,
+              initialValue: _selectedNetworkInterface,
               decoration: const InputDecoration(
                 labelText: 'Выберите интерфейс',
                 border: OutlineInputBorder(),

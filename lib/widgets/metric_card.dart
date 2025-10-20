@@ -85,7 +85,7 @@ class MetricCard extends StatelessWidget {
                 // Прогресс-бар
                 LinearProgressIndicator(
                   value: value / 100,
-                  backgroundColor: theme.colorScheme.outline.withOpacity(0.2),
+                  backgroundColor: theme.colorScheme.outline.withValues(alpha: 0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                   minHeight: isCompact ? 4 : 5,
                 ),
@@ -94,7 +94,7 @@ class MetricCard extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       fontSize: isCompact ? 12 : 13,
                     ),
                     maxLines: 1,
@@ -175,7 +175,7 @@ class MetricCardWithDetails extends StatelessWidget {
             const SizedBox(height: 12),
             LinearProgressIndicator(
               value: value / 100,
-              backgroundColor: theme.colorScheme.outline.withOpacity(0.2),
+              backgroundColor: theme.colorScheme.outline.withValues(alpha: 0.2),
               valueColor: AlwaysStoppedAnimation<Color>(progressColor),
               minHeight: 8,
             ),
@@ -185,7 +185,7 @@ class MetricCardWithDetails extends StatelessWidget {
               child: Text(
                 detail,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             )),

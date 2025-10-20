@@ -6,32 +6,43 @@ import '../models/system_metrics.dart';
 class GlancesApiService {
   static const int timeoutSeconds = 5;
   late final Dio _dio;
-  int _apiVersion = 4; // По умолчанию v4
 
-  // Реестр известных endpoint-ов Glances (read-only)
+  // Реестр известных endpoint-ов Glances (согласно официальной документации)
   static const List<String> knownEndpoints = [
-    'quicklook',
-    'mem',
-    'memswap',
-    'fs',
-    'cpu',
-    'network',
-    'percpu',
-    'load',
-    'uptime',
-    'system',
-    'version',
-    'processcount',
-    'processlist',
-    'sensors',
-    'smart',
-    'raid',
-    'docker',
-    'gpu',
-    'diskio',
-    'folders',
-    'wifi',
-    'alert',
+    'quicklook',      // Сводная информация
+    'mem',           // Память
+    'memswap',       // Своп память
+    'fs',            // Файловая система
+    'cpu',           // Процессор
+    'network',       // Сетевые интерфейсы
+    'percpu',        // Процессор по ядрам
+    'load',          // Нагрузка системы
+    'uptime',        // Время работы
+    'system',        // Информация о системе
+    'version',       // Версия Glances
+    'processcount',  // Количество процессов
+    'processlist',   // Список процессов
+    'sensors',       // Датчики
+    'smart',         // SMART диски
+    'raid',          // RAID массивы
+    'docker',        // Docker контейнеры
+    'gpu',           // Видеокарты
+    'diskio',        // Дисковая активность
+    'folders',       // Папки
+    'wifi',          // WiFi
+    'alert',         // Оповещения
+    'connections',   // Сетевые соединения
+    'containers',    // Контейнеры
+    'ports',         // Порты
+    'vms',           // Виртуальные машины
+    'amps',          // AMP мониторинг
+    'cloud',         // Облачные сервисы
+    'ip',            // IP адреса
+    'irq',           // Прерывания
+    'programlist',   // Список программ
+    'psutilversion', // Версия psutil
+    'help',          // Справка
+    'core',          // Ядро системы
   ];
 
 
@@ -58,16 +69,20 @@ class GlancesApiService {
     }
   }
 
-  Future<void> _determineApiVersion(ServerConfig server) async {
+  Future<int> _determineApiVersion(ServerConfig server) async {
     try {
-      // Пробуем сначала v4
-      await _dio.get('${server.url}/api/4/now');
-      _apiVersion = 4;
+      // Согласно документации Glances, используем /api/4/status для проверки
+      final statusResponse = await _dio.get('${server.url}/api/4/status');
+      if (statusResponse.statusCode == 200) {
+        return 4;
+      } else {
+        throw Exception('API v4 недоступен');
+      }
     } catch (e) {
       // Если v4 недоступна, пробуем v3
       try {
         await _dio.get('${server.url}/api/3/now');
-        _apiVersion = 3;
+        return 3;
       } catch (e) {
         // Если и v3 недоступна, выбрасываем исключение
         throw Exception('Не удалось определить версию API');
@@ -82,9 +97,9 @@ class GlancesApiService {
   Future<SystemMetrics> getServerMetrics(ServerConfig server) async {
     try {
       _setupAuth(server);
-      await _determineApiVersion(server);
+      final apiVersion = await _determineApiVersion(server); // Получаем версию API
 
-      final apiUrl = '${server.url}/api/$_apiVersion';
+      final apiUrl = '${server.url}/api/$apiVersion';
 
       // Определяем, какие эндпоинты нужны на основе выбранных метрик и selectedEndpoints
       final needCpu = server.selectedMetrics.contains('cpu');
@@ -263,7 +278,7 @@ class GlancesApiService {
         disk: fs,
         cpu: cpu,
         network: network,
-        apiVersion: _apiVersion,
+        apiVersion: apiVersion,
         uptimeText: uptimeText,
         systemInfo: systemInfo,
         versionInfo: versionInfo,
@@ -287,9 +302,17 @@ class GlancesApiService {
   Future<bool> testConnection(ServerConfig server) async {
     try {
       _setupAuth(server);
-      await _determineApiVersion(server);
-      final response = await _dio.get('${server.url}/api/$_apiVersion/now');
-      return response.statusCode == 200;
+      final apiVersion = await _determineApiVersion(server); // Получаем версию API
+      
+      // Согласно документации, используем /status для проверки API v4
+      if (apiVersion == 4) {
+        final response = await _dio.get('${server.url}/api/4/status');
+        return response.statusCode == 200;
+      } else {
+        // Для API v3 используем /now
+        final response = await _dio.get('${server.url}/api/3/now');
+        return response.statusCode == 200;
+      }
     } catch (e) {
       return false;
     }
@@ -298,8 +321,8 @@ class GlancesApiService {
   // Сканирование доступных endpoint-ов на сервере (быстрым методом)
   Future<Map<String, bool>> scanAvailableEndpoints(ServerConfig server, {List<String>? endpoints}) async {
     _setupAuth(server);
-    await _determineApiVersion(server);
-    final apiUrl = '${server.url}/api/$_apiVersion';
+    final apiVersion = await _determineApiVersion(server); // Получаем версию API
+    final apiUrl = '${server.url}/api/$apiVersion';
     final toCheck = endpoints ?? knownEndpoints;
     final Map<String, bool> result = {};
 
@@ -318,8 +341,8 @@ class GlancesApiService {
   // Получить список сетевых интерфейсов
   Future<List<String>> fetchNetworkInterfaces(ServerConfig server) async {
     _setupAuth(server);
-    await _determineApiVersion(server);
-    final apiUrl = '${server.url}/api/$_apiVersion/network';
+    final apiVersion = await _determineApiVersion(server); // Получаем версию API
+    final apiUrl = '${server.url}/api/$apiVersion/network';
     try {
       final resp = await _dio.get(apiUrl);
       if (resp.statusCode == 200 && resp.data is List) {

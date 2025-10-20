@@ -27,7 +27,7 @@ class ServerListTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: statusColor.withOpacity(0.1),
+          backgroundColor: statusColor.withValues(alpha: 0.1),
           child: Text(
             server.flag,
             style: const TextStyle(fontSize: 24),
@@ -45,7 +45,7 @@ class ServerListTile extends StatelessWidget {
             Text(
               server.url,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 4),
@@ -54,9 +54,9 @@ class ServerListTile extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     statusText,
@@ -67,6 +67,28 @@ class ServerListTile extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Отображение версии API
+                if (metrics?.apiVersion != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getApiVersionColor(metrics!.apiVersion!).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _getApiVersionColor(metrics!.apiVersion!).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      'API v${metrics!.apiVersion}',
+                      style: TextStyle(
+                        color: _getApiVersionColor(metrics!.apiVersion!),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
                 if (isOnline && metrics != null) ...[
                   const SizedBox(width: 8),
                   Expanded(
@@ -107,9 +129,9 @@ class ServerListTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         '$label ${value.toStringAsFixed(0)}%',
@@ -120,6 +142,17 @@ class ServerListTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _getApiVersionColor(int apiVersion) {
+    switch (apiVersion) {
+      case 4:
+        return Colors.blue; // API v4 - синий (современный)
+      case 3:
+        return Colors.orange; // API v3 - оранжевый (legacy)
+      default:
+        return Colors.grey; // Неизвестная версия - серый
+    }
   }
 }
 
