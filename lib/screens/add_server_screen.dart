@@ -648,21 +648,12 @@ class _AddServerScreenState extends State<AddServerScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              initialValue: _selectedNetworkInterface,
+              value: _getValidNetworkInterfaceValue(),
               decoration: const InputDecoration(
                 labelText: 'Выберите интерфейс',
                 border: OutlineInputBorder(),
               ),
-              items: [
-                const DropdownMenuItem(
-                  value: 'auto',
-                  child: Text('Автоматически'),
-                ),
-                ..._availableNetworkInterfaces.map((iface) => DropdownMenuItem(
-                  value: iface,
-                  child: Text(iface),
-                )),
-              ],
+              items: _buildNetworkInterfaceItems(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() {
@@ -687,7 +678,11 @@ class _AddServerScreenState extends State<AddServerScreen> {
       final interfaces = await _apiService.fetchNetworkInterfaces(tempServer);
       if (mounted) {
         setState(() {
-          _availableNetworkInterfaces = interfaces;
+          // Убираем дубликаты и пустые строки
+          _availableNetworkInterfaces = interfaces
+              .where((interface) => interface.isNotEmpty)
+              .toSet()
+              .toList();
         });
       }
     } catch (e) {
@@ -725,6 +720,49 @@ class _AddServerScreenState extends State<AddServerScreen> {
         builder: (context) => ConnectionOptionsScreen(server: tempServer),
       ),
     );
+  }
+
+  String _getValidNetworkInterfaceValue() {
+    // Проверяем, что выбранный интерфейс существует в списке
+    if (_selectedNetworkInterface == 'auto') {
+      return 'auto';
+    }
+    
+    // Убираем дубликаты из списка для проверки
+    final uniqueInterfaces = _availableNetworkInterfaces.toSet();
+    if (uniqueInterfaces.contains(_selectedNetworkInterface)) {
+      return _selectedNetworkInterface;
+    }
+    
+    // Если выбранный интерфейс не найден, возвращаем 'auto'
+    return 'auto';
+  }
+
+  List<DropdownMenuItem<String>> _buildNetworkInterfaceItems() {
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem(
+        value: 'auto',
+        child: Text('Автоматически'),
+      ),
+    ];
+
+    // Убираем дубликаты и пустые строки, сортируем для консистентности
+    final uniqueInterfaces = _availableNetworkInterfaces
+        .where((interface) => interface.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    for (final interface in uniqueInterfaces) {
+      items.add(
+        DropdownMenuItem(
+          value: interface,
+          child: Text(interface),
+        ),
+      );
+    }
+
+    return items;
   }
 }
 

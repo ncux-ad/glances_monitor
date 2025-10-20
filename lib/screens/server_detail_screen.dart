@@ -187,23 +187,12 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
             const Text('Выберите сетевой интерфейс для мониторинга:'),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _availableNetworkInterfaces.contains(_selectedNetworkInterface) || _selectedNetworkInterface == 'auto' 
-                  ? _selectedNetworkInterface 
-                  : 'auto',
+              value: _getValidDropdownValue(),
               decoration: const InputDecoration(
                 labelText: 'Сетевой интерфейс',
                 border: OutlineInputBorder(),
               ),
-              items: [
-                const DropdownMenuItem(
-                  value: 'auto',
-                  child: Text('Автоматически'),
-                ),
-                ..._availableNetworkInterfaces.toSet().map((interface) => DropdownMenuItem(
-                  value: interface,
-                  child: Text(interface),
-                )),
-              ],
+              items: _buildDropdownItems(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() {
@@ -258,7 +247,11 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       final interfaces = await _apiService.fetchNetworkInterfaces(widget.server);
       if (mounted) {
         setState(() {
-          _availableNetworkInterfaces = interfaces;
+          // Убираем дубликаты и пустые строки
+          _availableNetworkInterfaces = interfaces
+              .where((interface) => interface.isNotEmpty)
+              .toSet()
+              .toList();
         });
       }
     } catch (e) {
@@ -620,8 +613,8 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
                 child: MetricCard(
                   title: 'Сеть',
                   icon: '🌐',
-                  value: _metrics!.networkRxRate != null ? _metrics!.networkRxRate! : 0,
-                  unit: 'KB/s',
+                  value: _metrics!.networkRxRate != null ? _convertToMbps(_metrics!.networkRxRate!) : 0,
+                  unit: 'Mbps',
                   subtitle: 'RX: ${_metrics!.formatBytes(_metrics!.networkRx)}\nTX: ${_metrics!.formatBytes(_metrics!.networkTx)}',
                 ),
               ),
@@ -939,6 +932,55 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       i++;
     }
     return '${size.toStringAsFixed(1)} ${sizes[i]}';
+  }
+
+  double _convertToMbps(double kbps) {
+    // KB/s -> Kbps (умножаем на 8 для перевода байт в биты)
+    // Kbps -> Mbps (делим на 1000 для перевода килобит в мегабиты)
+    return (kbps * 8) / 1000;
+  }
+
+  String _getValidDropdownValue() {
+    // Проверяем, что выбранный интерфейс существует в списке
+    if (_selectedNetworkInterface == 'auto') {
+      return 'auto';
+    }
+    
+    // Убираем дубликаты из списка для проверки
+    final uniqueInterfaces = _availableNetworkInterfaces.toSet();
+    if (uniqueInterfaces.contains(_selectedNetworkInterface)) {
+      return _selectedNetworkInterface;
+    }
+    
+    // Если выбранный интерфейс не найден, возвращаем 'auto'
+    return 'auto';
+  }
+
+  List<DropdownMenuItem<String>> _buildDropdownItems() {
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem(
+        value: 'auto',
+        child: Text('Автоматически'),
+      ),
+    ];
+
+    // Убираем дубликаты и пустые строки, сортируем для консистентности
+    final uniqueInterfaces = _availableNetworkInterfaces
+        .where((interface) => interface.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    for (final interface in uniqueInterfaces) {
+      items.add(
+        DropdownMenuItem(
+          value: interface,
+          child: Text(interface),
+        ),
+      );
+    }
+
+    return items;
   }
 
   Widget _buildNetworkTab() {
