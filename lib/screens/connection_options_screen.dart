@@ -26,7 +26,10 @@ class _ConnectionOptionsScreenState extends State<ConnectionOptionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Варианты подключения - ${widget.server.name}'),
+        title: Text(
+          'Варианты подключения - ${widget.server.name}',
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

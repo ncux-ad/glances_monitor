@@ -1142,21 +1142,27 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       
       networkDetails.add('ℹ️ API v3: общий трафик + текущая скорость');
     } else if (isApiV4) {
-      // API v4 - проверяем, есть ли FastAPI данные
-      if (hasGaugeData) {
-        // FastAPI - основные данные уже в networkRx/networkTx (gauge поля)
+      // API v4 - всегда показываем кумулятивные данные (более точные)
+      networkDetails.addAll([
+        '📊 Кумулятивный RX: ${_formatBytes(_metrics!.networkRx)}',
+        '📊 Кумулятивный TX: ${_formatBytes(_metrics!.networkTx)}',
+      ]);
+      
+      // Проверяем, отличаются ли gauge данные от cumulative
+      final gaugeRx = _metrics!.networkRxGauge ?? 0;
+      final gaugeTx = _metrics!.networkTxGauge ?? 0;
+      final cumulativeRx = _metrics!.networkRx;
+      final cumulativeTx = _metrics!.networkTx;
+      
+      if (hasGaugeData && (gaugeRx != cumulativeRx || gaugeTx != cumulativeTx)) {
+        // Показываем gauge данные только если они отличаются от cumulative
         networkDetails.addAll([
-          '📊 Общий RX: ${_formatBytes(_metrics!.networkRx)}',
-          '📊 Общий TX: ${_formatBytes(_metrics!.networkTx)}',
-          'ℹ️ FastAPI: gauge поля как основные',
+          '📈 Gauge RX: ${_formatBytes(gaugeRx)}',
+          '📈 Gauge TX: ${_formatBytes(gaugeTx)}',
         ]);
+        networkDetails.add('ℹ️ API v4: cumulative ≠ gauge (разные значения)');
       } else {
-        // Стандартный API v4 - используем cumulative поля
-        networkDetails.addAll([
-          '📊 Кумулятивный RX: ${_formatBytes(_metrics!.networkRx)}',
-          '📊 Кумулятивный TX: ${_formatBytes(_metrics!.networkTx)}',
-          'ℹ️ API v4: поля cumulative_rx/cumulative_tx',
-        ]);
+        networkDetails.add('ℹ️ API v4: cumulative = gauge (одинаковые значения)');
       }
     } else {
       // Неизвестная версия - показываем как есть
@@ -1184,11 +1190,11 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     
     // Добавляем информацию о типе данных
     if (hasGaugeData || hasRateData) {
-      networkDetails.add('🚀 FastAPI данные доступны');
+      networkDetails.add('🚀 FastAPI: расширенные данные доступны');
     } else if (isApiV3) {
       networkDetails.add('📡 API v3: стандартные данные');
     } else if (isApiV4) {
-      networkDetails.add('🔧 API v4: стандартные данные');
+      networkDetails.add('🔧 API v4: точные кумулятивные данные');
     } else {
       networkDetails.add('❓ Неизвестная версия API');
     }

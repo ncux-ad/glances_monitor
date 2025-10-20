@@ -2,7 +2,7 @@ name: glances_monitor
 description: "Flutter приложение для мониторинга серверов через Glances REST API"
 publish_to: 'none'
 
-version: 0.0.1+17
+version: 0.0.1+18
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

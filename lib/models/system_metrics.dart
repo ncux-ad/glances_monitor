@@ -238,16 +238,26 @@ class SystemMetrics {
     final networkTxRate = (mainInterface['bytes_sent_rate_per_sec'] as num?)?.toDouble();
     
     // Определяем основные поля для общего трафика
+    // Приоритизируем cumulative поля для получения точных данных о реальном объеме трафика
     int networkRx, networkTx;
-    if (networkRxGauge != null && networkTxGauge != null) {
-      // FastAPI - используем gauge поля как основные
+    final cumulativeRx = (mainInterface['cumulative_rx'] as num?)?.toInt() ?? 0;
+    final cumulativeTx = (mainInterface['cumulative_tx'] as num?)?.toInt() ?? 0;
+    
+    if (cumulativeRx > 0 || cumulativeTx > 0) {
+      // Используем cumulative поля как основные (более точные данные)
+      networkRx = cumulativeRx;
+      networkTx = cumulativeTx;
+    } else if (networkRxGauge != null && networkTxGauge != null) {
+      // Fallback на gauge поля если cumulative недоступны
       networkRx = networkRxGauge;
       networkTx = networkTxGauge;
     } else {
-      // Стандартные API - используем cumulative поля
-      networkRx = (mainInterface['cumulative_rx'] as num?)?.toInt() ?? 0;
-      networkTx = (mainInterface['cumulative_tx'] as num?)?.toInt() ?? 0;
+      // Последний fallback
+      networkRx = 0;
+      networkTx = 0;
     }
+    
+    // Если cumulative и gauge поля одинаковы, это означает что FastAPI возвращает корректные данные
     
     // Дополнительно получаем текущую скорость для API v3
     final networkRxCurrent = apiVersion == 3 ? (mainInterface['rx'] as num?)?.toInt() ?? 0 : null;
