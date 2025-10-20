@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../utils/build_info.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -36,11 +37,52 @@ class AboutScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Версия 0.0.1',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
+                  FutureBuilder<Map<String, String>>(
+                    future: BuildInfo.getFullBuildInfo(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final info = snapshot.data!;
+                        return Column(
+                          children: [
+                            Text(
+                              'Версия ${info['version']}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Сборка ${info['buildNumber']}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.outline.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Commit: ${info['commitHash']}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.outline.withValues(alpha: 0.6),
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Дата: ${info['buildDate']}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.outline.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        );
+                      } else {
+                        return Text(
+                          'Версия 1.0.0',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),

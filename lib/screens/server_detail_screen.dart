@@ -16,7 +16,7 @@ class ServerDetailScreen extends StatefulWidget {
   State<ServerDetailScreen> createState() => _ServerDetailScreenState();
 }
 
-class _ServerDetailScreenState extends State<ServerDetailScreen> {
+class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProviderStateMixin {
   final _apiService = GlancesApiService();
   SystemMetrics? _metrics;
   bool _isLoading = false;
@@ -33,6 +33,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
   late Set<String> _selectedEndpoints;
   String _selectedNetworkInterface = 'auto';
   List<String> _availableNetworkInterfaces = [];
+  String _selectedDetailTab = 'system';
 
   final Map<String, Set<String>> _presets = const {
     'Минимум': {'cpu', 'mem'},
@@ -612,6 +613,67 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     );
   }
 
+  Widget _buildMetricTabs() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+        ),
+      ),
+      child: TabBar(
+        controller: TabController(
+          length: 4,
+          initialIndex: 0,
+          vsync: this,
+        ),
+        onTap: (index) {
+          setState(() {
+            switch (index) {
+              case 0:
+                _selectedDetailTab = 'system';
+                break;
+              case 1:
+                _selectedDetailTab = 'network';
+                break;
+              case 2:
+                _selectedDetailTab = 'storage';
+                break;
+              case 3:
+                _selectedDetailTab = 'performance';
+                break;
+            }
+          });
+        },
+        tabs: [
+          Tab(
+            icon: Icon(Icons.computer, size: 20),
+            text: 'Система',
+          ),
+          Tab(
+            icon: Icon(Icons.network_check, size: 20),
+            text: 'Сеть',
+          ),
+          Tab(
+            icon: Icon(Icons.storage, size: 20),
+            text: 'Хранилище',
+          ),
+          Tab(
+            icon: Icon(Icons.speed, size: 20),
+            text: 'Производительность',
+          ),
+        ],
+        labelColor: Theme.of(context).colorScheme.primary,
+        unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        indicator: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDetailedMetrics() {
     if (_metrics == null || !_metrics!.isOnline) {
       return const SizedBox.shrink();
@@ -627,7 +689,32 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (_metrics!.uptimeText != null)
+        _buildMetricTabs(),
+        const SizedBox(height: 16),
+        _buildTabContent(),
+      ],
+    );
+  }
+
+  Widget _buildTabContent() {
+    switch (_selectedDetailTab) {
+      case 'system':
+        return _buildSystemTab();
+      case 'network':
+        return _buildNetworkTab();
+      case 'storage':
+        return _buildStorageTab();
+      case 'performance':
+        return _buildPerformanceTab();
+      default:
+        return _buildSystemTab();
+    }
+  }
+
+  Widget _buildSystemTab() {
+    return Column(
+      children: [
+        if (_metrics!.uptimeText != null) ...[
           _buildDetailedCard(
             'Uptime',
             '⏱️',
@@ -635,7 +722,8 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
               _metrics!.uptimeText!,
             ],
           ),
-        if (_metrics!.uptimeText != null) const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         if (_selectedMetrics.contains('mem'))
           _buildDetailedCard(
             'Память',
@@ -659,20 +747,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           ),
           const SizedBox(height: 12),
         ],
-        if (_selectedMetrics.contains('fs'))
-          _buildDetailedCard(
-            'Диск',
-            '💾',
-            [
-              'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
-              'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
-              'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
-            ],
-          ),
-        const SizedBox(height: 12),
-        if (_selectedMetrics.contains('network'))
-          _buildNetworkDetailedCard(),
-        const SizedBox(height: 12),
         if (_metrics!.systemInfo != null)
           _buildDetailedCard(
             'Система',
@@ -769,19 +843,38 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     
     // Добавляем информацию о трафике в зависимости от версии API
     if (isApiV3) {
-      // API v3 - используем поля rx/tx
+      // API v3 - показываем общий трафик и текущую скорость
       networkDetails.addAll([
-        '📊 Текущий RX: ${_formatBytes(_metrics!.networkRx)}',
-        '📊 Текущий TX: ${_formatBytes(_metrics!.networkTx)}',
-        'ℹ️ API v3: базовые поля rx/tx',
+        '📊 Общий RX: ${_formatBytes(_metrics!.networkRx)}',
+        '📊 Общий TX: ${_formatBytes(_metrics!.networkTx)}',
       ]);
+      
+      // Добавляем текущую скорость если доступна
+      if (_metrics!.networkRxCurrent != null && _metrics!.networkTxCurrent != null) {
+        networkDetails.addAll([
+          '⚡ Текущий RX: ${_formatBytes(_metrics!.networkRxCurrent!)}/сек',
+          '⚡ Текущий TX: ${_formatBytes(_metrics!.networkTxCurrent!)}/сек',
+        ]);
+      }
+      
+      networkDetails.add('ℹ️ API v3: общий трафик + текущая скорость');
     } else if (isApiV4) {
-      // API v4 - используем поля cumulative_rx/cumulative_tx
-      networkDetails.addAll([
-        '📊 Кумулятивный RX: ${_formatBytes(_metrics!.networkRx)}',
-        '📊 Кумулятивный TX: ${_formatBytes(_metrics!.networkTx)}',
-        'ℹ️ API v4: поля cumulative_rx/cumulative_tx',
-      ]);
+      // API v4 - проверяем, есть ли FastAPI данные
+      if (hasGaugeData) {
+        // FastAPI - основные данные уже в networkRx/networkTx (gauge поля)
+        networkDetails.addAll([
+          '📊 Общий RX: ${_formatBytes(_metrics!.networkRx)}',
+          '📊 Общий TX: ${_formatBytes(_metrics!.networkTx)}',
+          'ℹ️ FastAPI: gauge поля как основные',
+        ]);
+      } else {
+        // Стандартный API v4 - используем cumulative поля
+        networkDetails.addAll([
+          '📊 Кумулятивный RX: ${_formatBytes(_metrics!.networkRx)}',
+          '📊 Кумулятивный TX: ${_formatBytes(_metrics!.networkTx)}',
+          'ℹ️ API v4: поля cumulative_rx/cumulative_tx',
+        ]);
+      }
     } else {
       // Неизвестная версия - показываем как есть
       networkDetails.addAll([
@@ -790,8 +883,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
       ]);
     }
     
-    // Добавляем FastAPI данные если они есть (только для API v4 с FastAPI)
-    if (hasGaugeData) {
+    // Добавляем дополнительные FastAPI данные если они есть
+    if (hasGaugeData && !isApiV4) {
+      // Показываем gauge данные только если это не FastAPI (где они уже основные)
       networkDetails.addAll([
         '📈 Gauge RX: ${_formatBytes(_metrics!.networkRxGauge ?? 0)}',
         '📈 Gauge TX: ${_formatBytes(_metrics!.networkTxGauge ?? 0)}',
@@ -840,5 +934,79 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
       i++;
     }
     return '${size.toStringAsFixed(1)} ${sizes[i]}';
+  }
+
+  Widget _buildNetworkTab() {
+    if (!_selectedMetrics.contains('network')) {
+      return _buildEmptyTab('Сетевые метрики не выбраны');
+    }
+    return _buildNetworkDetailedCard();
+  }
+
+  Widget _buildStorageTab() {
+    if (!_selectedMetrics.contains('fs')) {
+      return _buildEmptyTab('Метрики диска не выбраны');
+    }
+    return _buildDetailedCard(
+      'Диск',
+      '💾',
+      [
+        'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
+        'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
+        'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
+      ],
+    );
+  }
+
+  Widget _buildPerformanceTab() {
+    return Column(
+      children: [
+        if (_selectedMetrics.contains('cpu'))
+          _buildDetailedCard(
+            'CPU',
+            '⚡',
+            [
+              'Процессор: ${_metrics!.cpuName}',
+              'Частота: ${_metrics!.cpuHz} GHz',
+              'Ядра: ${_metrics!.cpuCores}',
+              'Загрузка: ${_metrics!.cpuPercent.toStringAsFixed(1)}%',
+            ],
+          ),
+        const SizedBox(height: 12),
+        if (_selectedMetrics.contains('mem'))
+          _buildDetailedCard(
+            'Производительность памяти',
+            '🧠',
+            [
+              'Использование: ${_metrics!.memPercent.toStringAsFixed(1)}%',
+              'Использовано: ${_metrics!.formatBytes(_metrics!.memUsed)}',
+              'Свободно: ${_metrics!.formatBytes(_metrics!.memFree)}',
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyTab(String message) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 48,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 }

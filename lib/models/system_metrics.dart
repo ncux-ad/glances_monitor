@@ -24,6 +24,8 @@ class SystemMetrics {
   final int? networkTxGauge; // Кумулятивный TX трафик (FastAPI)
   final double? networkRxRate; // Скорость RX в байтах/сек (FastAPI)
   final double? networkTxRate; // Скорость TX в байтах/сек (FastAPI)
+  final int? networkRxCurrent; // Текущая скорость RX (API v3)
+  final int? networkTxCurrent; // Текущая скорость TX (API v3)
   final bool isOnline;
   final String? errorMessage;
   final int? apiVersion; // Версия API Glances (3, 4, или null если неизвестно)
@@ -66,6 +68,8 @@ class SystemMetrics {
     this.networkTxGauge,
     this.networkRxRate,
     this.networkTxRate,
+    this.networkRxCurrent,
+    this.networkTxCurrent,
     required this.isOnline,
     this.errorMessage,
     this.apiVersion,
@@ -108,6 +112,8 @@ class SystemMetrics {
       networkTxGauge: null,
       networkRxRate: null,
       networkTxRate: null,
+      networkRxCurrent: null,
+      networkTxCurrent: null,
       isOnline: false,
       errorMessage: errorMessage,
       uptimeText: null,
@@ -180,16 +186,27 @@ class SystemMetrics {
       orElse: () => network.isNotEmpty ? network.first : {},
     );
     final networkInterface = mainInterface['interface_name'] as String? ?? 'Неизвестно';
-    final rxField = apiVersion == 3 ? 'rx' : 'cumulative_rx';
-    final txField = apiVersion == 3 ? 'tx' : 'cumulative_tx';
-    final networkRx = (mainInterface[rxField] as num?)?.toInt() ?? 0;
-    final networkTx = (mainInterface[txField] as num?)?.toInt() ?? 0;
-    
-    // Дополнительные поля для FastAPI
+    // Получаем gauge поля для FastAPI
     final networkRxGauge = (mainInterface['bytes_recv_gauge'] as num?)?.toInt();
     final networkTxGauge = (mainInterface['bytes_sent_gauge'] as num?)?.toInt();
     final networkRxRate = (mainInterface['bytes_recv_rate_per_sec'] as num?)?.toDouble();
     final networkTxRate = (mainInterface['bytes_sent_rate_per_sec'] as num?)?.toDouble();
+    
+    // Определяем основные поля для общего трафика
+    int networkRx, networkTx;
+    if (networkRxGauge != null && networkTxGauge != null) {
+      // FastAPI - используем gauge поля как основные
+      networkRx = networkRxGauge;
+      networkTx = networkTxGauge;
+    } else {
+      // Стандартные API - используем cumulative поля
+      networkRx = (mainInterface['cumulative_rx'] as num?)?.toInt() ?? 0;
+      networkTx = (mainInterface['cumulative_tx'] as num?)?.toInt() ?? 0;
+    }
+    
+    // Дополнительно получаем текущую скорость для API v3
+    final networkRxCurrent = apiVersion == 3 ? (mainInterface['rx'] as num?)?.toInt() ?? 0 : null;
+    final networkTxCurrent = apiVersion == 3 ? (mainInterface['tx'] as num?)?.toInt() ?? 0 : null;
 
     return SystemMetrics(
       cpuPercent: cpuPercent,
@@ -215,6 +232,8 @@ class SystemMetrics {
       networkTxGauge: networkTxGauge,
       networkRxRate: networkRxRate,
       networkTxRate: networkTxRate,
+      networkRxCurrent: networkRxCurrent,
+      networkTxCurrent: networkTxCurrent,
       isOnline: true,
       apiVersion: apiVersion,
       uptimeText: uptimeText,

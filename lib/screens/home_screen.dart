@@ -101,7 +101,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Быстрая проверка статуса серверов без загрузки полных метрик
   Future<void> _quickHealthCheck() async {
-    if (_servers.isEmpty) return;
+    if (_servers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Нет серверов для проверки'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Показываем индикатор загрузки
+    setState(() {
+      _isLoading = true;
+    });
+
+    int onlineCount = 0;
+    int offlineCount = 0;
 
     final futures = _servers.map((server) async {
       try {
@@ -110,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             // Обновляем только статус онлайн/офлайн, не загружая полные метрики
             if (isOnline) {
+              onlineCount++;
               // Если сервер онлайн, но метрик нет - создаем минимальные онлайн метрики
               if (_serverMetrics[server.id] == null || !_serverMetrics[server.id]!.isOnline) {
                 _serverMetrics[server.id] = SystemMetrics(
@@ -137,12 +154,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             } else {
-              // Сервер офлайн
+              offlineCount++;
               _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: 'Сервер недоступен');
             }
           });
         }
       } catch (e) {
+        offlineCount++;
         if (mounted) {
           setState(() {
             _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: e.toString());
@@ -152,6 +170,47 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     await Future.wait(futures);
+
+    // Скрываем индикатор загрузки
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Показываем результат проверки
+      String message;
+      Color backgroundColor;
+      if (onlineCount == _servers.length) {
+        message = '✅ Все серверы онлайн ($onlineCount)';
+        backgroundColor = Colors.green;
+      } else if (offlineCount == _servers.length) {
+        message = '❌ Все серверы офлайн ($offlineCount)';
+        backgroundColor = Colors.red;
+      } else {
+        message = '⚠️ Онлайн: $onlineCount, Офлайн: $offlineCount';
+        backgroundColor = Colors.orange;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// Обработка действий из меню
+  void _handleMenuAction(String action) {
+    switch (action) {
+      case 'health_check':
+        _quickHealthCheck();
+        break;
+      case 'about':
+        _showAbout();
+        break;
+    }
   }
 
   void _addServer() async {
@@ -237,27 +296,51 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Glances Monitor'),
         backgroundColor: theme.colorScheme.inversePrimary,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.health_and_safety),
-            onPressed: _isLoading ? null : _quickHealthCheck,
-            tooltip: 'Быстрая проверка статуса',
+          // Главная кнопка - обновление с умным функционалом
+          GestureDetector(
+            onTap: _onRefresh,
+            onLongPress: _quickHealthCheck,
+            child: IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: null, // Обрабатывается в GestureDetector
+              tooltip: 'Обновить (долгое нажатие - проверка статуса)',
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: _showAbout,
-            tooltip: 'О программе',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : _onRefresh,
-            tooltip: 'Полное обновление',
+          // Меню с дополнительными действиями
+          PopupMenuButton<String>(
+            onSelected: _handleMenuAction,
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'health_check',
+                child: Row(
+                  children: [
+                    Icon(Icons.favorite, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Text('Проверка статуса'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'about',
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 20),
+                    SizedBox(width: 8),
+                    Text('О программе'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
       body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _addServer,
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Добавить сервер'),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
       ),
     );
   }
