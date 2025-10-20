@@ -1,0 +1,13 @@
+# Android SDK location
+sdk.dir=/path/to/android/sdk
+
+# Flutter SDK location  
+flutter.sdk=/path/to/flutter
+
+# Build configuration
+flutter.buildMode=release
+flutter.versionName=1.0.0
+flutter.versionCode=1
+
+# IMPORTANT: Copy this file to local.properties and update paths
+# DO NOT commit local.properties to version control
