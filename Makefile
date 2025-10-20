@@ -61,15 +61,16 @@ debug: clean install-deps ## Собрать debug APK
 	flutter build apk --debug --build-name=$(VERSION) --build-number=$(BUILD_NUMBER)
 	@echo "$(GREEN)Debug APK собран$(NC)"
 
-release: clean install-deps update-version ## Собрать release APK
+release: clean install-deps ## Собрать release APK
 	@echo "$(BLUE)Сборка release APK...$(NC)"
 	flutter build apk --release --build-name=$(VERSION) --build-number=$(BUILD_NUMBER)
 	@echo "$(GREEN)Release APK собран$(NC)"
 
-build: release ## Собрать все APK (debug + release)
-	@echo "$(BLUE)Сборка всех APK...$(NC)"
-	flutter build apk --debug --build-name=$(VERSION) --build-number=$(BUILD_NUMBER)
+build: debug release ## Собрать все APK (debug + release)
 	@echo "$(GREEN)Все APK собраны$(NC)"
+
+build-with-version: clean install-deps update-version debug release ## Собрать с обновлением версии
+	@echo "$(GREEN)Все APK собраны с обновленной версией$(NC)"
 
 package: build ## Создать пакет с APK файлами
 	@echo "$(BLUE)Создание пакета...$(NC)"
@@ -95,7 +96,7 @@ dev: clean install-deps ## Настройка для разработки
 	@echo "$(GREEN)Проект готов для разработки$(NC)"
 
 # Команды для релиза
-release-package: clean install-deps update-version build package ## Полный цикл сборки релиза
+release-package: clean install-deps update-version debug release package ## Полный цикл сборки релиза
 	@echo "$(GREEN)Релиз готов!$(NC)"
 	@echo "$(BLUE)Файлы:$(NC)"
 	@ls -la $(RELEASE_DIR)/glances_monitor_*_v$(VERSION)_b$(BUILD_NUMBER).apk 2>/dev/null || echo "Файлы не найдены"
