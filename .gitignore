@@ -128,9 +128,20 @@ $RECYCLE.BIN/
 *.dex
 *.class
 local.properties
+**/local.properties
+android/local.properties
 proguard/
 *.keystore
 !debug.keystore
+
+# Security and secrets
+*.key
+*.pem
+*.p12
+*.jks
+secrets.json
+config.json
+credentials.json
 
 # Gradle
 .gradle/
