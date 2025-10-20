@@ -45,7 +45,7 @@ class MetricCard extends StatelessWidget {
                   children: [
                     Text(
                       icon,
-                      style: TextStyle(fontSize: isCompact ? 16.0 : 20.0),
+                      style: TextStyle(fontSize: isCompact ? 10.7 : 13.3),
                     ),
                     const SizedBox(width: 2),
                     Flexible(
@@ -54,11 +54,11 @@ class MetricCard extends StatelessWidget {
                         style: isCompact 
                             ? theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                                fontSize: 17,
                               )
                             : theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 17,
+                                fontSize: 19,
                               ),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
@@ -73,12 +73,12 @@ class MetricCard extends StatelessWidget {
                       ? theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold, 
                           color: progressColor,
-                          fontSize: 18,
+                          fontSize: 20,
                         )
                       : theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold, 
                           color: progressColor,
-                          fontSize: 20,
+                          fontSize: 22,
                         ),
                   textAlign: TextAlign.center,
                 ),
@@ -95,7 +95,7 @@ class MetricCard extends StatelessWidget {
                     subtitle!,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                      fontSize: isCompact ? 12 : 13,
+                      fontSize: isCompact ? 14 : 15,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -152,7 +152,7 @@ class MetricCardWithDetails extends StatelessWidget {
               children: [
                 Text(
                   icon,
-                  style: const TextStyle(fontSize: 24),
+                  style: const TextStyle(fontSize: 16),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -160,6 +160,7 @@ class MetricCardWithDetails extends StatelessWidget {
                     title,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
+                      fontSize: 19,
                     ),
                   ),
                 ),
@@ -168,6 +169,7 @@ class MetricCardWithDetails extends StatelessWidget {
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: progressColor,
+                    fontSize: 22,
                   ),
                 ),
               ],
@@ -186,6 +188,7 @@ class MetricCardWithDetails extends StatelessWidget {
                 detail,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  fontSize: 15,
                 ),
               ),
             )),
