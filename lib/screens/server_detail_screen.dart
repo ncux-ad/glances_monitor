@@ -206,7 +206,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
             const Text('Выберите сетевой интерфейс для мониторинга:'),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _getValidDropdownValue(),
+              initialValue: _getValidDropdownValue(),
               decoration: const InputDecoration(
                 labelText: 'Сетевой интерфейс',
                 border: OutlineInputBorder(),

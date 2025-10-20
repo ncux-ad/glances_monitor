@@ -648,7 +648,7 @@ class _AddServerScreenState extends State<AddServerScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _getValidNetworkInterfaceValue(),
+              initialValue: _getValidNetworkInterfaceValue(),
               decoration: const InputDecoration(
                 labelText: 'Выберите интерфейс',
                 border: OutlineInputBorder(),
