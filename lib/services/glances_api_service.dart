@@ -4,8 +4,15 @@ import '../models/server_config.dart';
 import '../models/system_metrics.dart';
 
 class GlancesApiService {
-  static const int timeoutSeconds = 5;
+  static const int timeoutSeconds = 10; // Увеличиваем таймаут до 10 секунд
+  static const int slowEndpointTimeoutSeconds = 15; // Для медленных endpoints
   late final Dio _dio;
+  late final Dio _slowDio; // Отдельный Dio для медленных endpoints
+  
+  // Кэш для результатов проверки endpoints
+  static final Map<String, Map<String, bool>> _endpointCache = {};
+  static final Map<String, DateTime> _cacheTimestamps = {};
+  static const Duration _cacheValidityDuration = Duration(minutes: 5); // Кэш действителен 5 минут
 
   // Реестр известных endpoint-ов Glances (согласно официальной документации)
   static const List<String> knownEndpoints = [
@@ -47,26 +54,84 @@ class GlancesApiService {
 
 
   GlancesApiService() {
+    // Основной Dio для быстрых запросов
     _dio = Dio();
     _dio.options.connectTimeout = Duration(seconds: timeoutSeconds);
     _dio.options.receiveTimeout = Duration(seconds: timeoutSeconds);
     
-    // Добавляем перехватчик для логирования ошибок
+    // Отдельный Dio для медленных endpoints
+    _slowDio = Dio();
+    _slowDio.options.connectTimeout = Duration(seconds: slowEndpointTimeoutSeconds);
+    _slowDio.options.receiveTimeout = Duration(seconds: slowEndpointTimeoutSeconds);
+    
+    // Добавляем перехватчики для логирования ошибок
     _dio.interceptors.add(InterceptorsWrapper(
       onError: (error, handler) {
         print('API Error: ${error.message}');
         handler.next(error);
       },
     ));
+    
+    _slowDio.interceptors.add(InterceptorsWrapper(
+      onError: (error, handler) {
+        print('Slow API Error: ${error.message}');
+        handler.next(error);
+      },
+    ));
   }
 
+  // Категории endpoints по скорости выполнения
+  static const List<String> fastEndpoints = [
+    'quicklook', 'mem', 'cpu', 'network', 'fs', 'uptime', 'system', 'version'
+  ];
+  
+  static const List<String> slowEndpoints = [
+    'processlist', 'programlist', 'sensors', 'smart', 'raid', 'docker', 
+    'gpu', 'diskio', 'folders', 'wifi', 'alert', 'connections', 
+    'containers', 'ports', 'vms', 'amps', 'cloud', 'irq', 'help'
+  ];
+
   void _setupAuth(ServerConfig server) {
-    if (server.username.isNotEmpty && server.password.isNotEmpty) {
-      final auth = base64Encode(utf8.encode('${server.username}:${server.password}'));
-      _dio.options.headers['Authorization'] = 'Basic $auth';
+    final authHeader = server.username.isNotEmpty && server.password.isNotEmpty
+        ? 'Basic ${base64Encode(utf8.encode('${server.username}:${server.password}'))}'
+        : null;
+    
+    // Настраиваем авторизацию для обоих Dio
+    if (authHeader != null) {
+      _dio.options.headers['Authorization'] = authHeader;
+      _slowDio.options.headers['Authorization'] = authHeader;
     } else {
       _dio.options.headers.remove('Authorization');
+      _slowDio.options.headers.remove('Authorization');
     }
+  }
+
+  // Получить ключ кэша для сервера
+  String _getCacheKey(ServerConfig server) {
+    return '${server.url}_${server.username}';
+  }
+
+  // Проверить, действителен ли кэш
+  bool _isCacheValid(String cacheKey) {
+    final timestamp = _cacheTimestamps[cacheKey];
+    if (timestamp == null) return false;
+    return DateTime.now().difference(timestamp) < _cacheValidityDuration;
+  }
+
+  // Получить кэшированные результаты
+  Map<String, bool>? _getCachedResults(String cacheKey) {
+    if (!_isCacheValid(cacheKey)) {
+      _endpointCache.remove(cacheKey);
+      _cacheTimestamps.remove(cacheKey);
+      return null;
+    }
+    return _endpointCache[cacheKey];
+  }
+
+  // Сохранить результаты в кэш
+  void _cacheResults(String cacheKey, Map<String, bool> results) {
+    _endpointCache[cacheKey] = results;
+    _cacheTimestamps[cacheKey] = DateTime.now();
   }
 
   Future<int> _determineApiVersion(ServerConfig server) async {
@@ -122,13 +187,18 @@ class GlancesApiService {
         if (knownEndpoints.contains(ep)) endpointsToFetch.add(ep);
       }
 
-      // Всегда запрашиваем quicklook (сводная информация)
-      final futures = <Future<Response<dynamic>>>[];
+      // Разделяем endpoints на быстрые и медленные
+      final fastEndpointsToFetch = endpointsToFetch.where((ep) => fastEndpoints.contains(ep)).toList();
+      final slowEndpointsToFetch = endpointsToFetch.where((ep) => slowEndpoints.contains(ep)).toList();
+      
+      // Запрашиваем быстрые endpoints с обычным таймаутом
+      final fastFutures = <Future<Response<dynamic>>>[];
+      final slowFutures = <Future<Response<dynamic>>>[];
       final List<String> order = [];
-      for (final ep in endpointsToFetch) {
+      
+      for (final ep in fastEndpointsToFetch) {
         order.add(ep);
-        futures.add(_dio.get('$apiUrl/$ep').catchError((error) {
-          // Возвращаем пустой ответ для неудачных запросов
+        fastFutures.add(_dio.get('$apiUrl/$ep').catchError((error) {
           return Response(
             requestOptions: RequestOptions(path: '$apiUrl/$ep'),
             data: null,
@@ -136,6 +206,21 @@ class GlancesApiService {
           );
         }));
       }
+      
+      // Запрашиваем медленные endpoints с увеличенным таймаутом
+      for (final ep in slowEndpointsToFetch) {
+        order.add(ep);
+        slowFutures.add(_slowDio.get('$apiUrl/$ep').catchError((error) {
+          return Response(
+            requestOptions: RequestOptions(path: '$apiUrl/$ep'),
+            data: null,
+            statusCode: 500,
+          );
+        }));
+      }
+      
+      // Объединяем все futures
+      final futures = [...fastFutures, ...slowFutures];
 
       final responses = await Future.wait(futures, eagerError: false);
 
@@ -158,6 +243,21 @@ class GlancesApiService {
       List<Map<String, dynamic>>? wifi;
       Map<String, dynamic>? load;
       Map<String, dynamic>? alert;
+      List<Map<String, dynamic>>? gpu;
+      List<Map<String, dynamic>>? diskio;
+      List<Map<String, dynamic>>? folders;
+      List<Map<String, dynamic>>? connections;
+      List<Map<String, dynamic>>? containers;
+      List<Map<String, dynamic>>? ports;
+      List<Map<String, dynamic>>? vms;
+      List<Map<String, dynamic>>? amps;
+      List<Map<String, dynamic>>? cloud;
+      List<Map<String, dynamic>>? ip;
+      List<Map<String, dynamic>>? irq;
+      List<Map<String, dynamic>>? programlist;
+      Map<String, dynamic>? psutilversion;
+      Map<String, dynamic>? help;
+      Map<String, dynamic>? core;
 
       for (int i = 0; i < order.length; i++) {
         final ep = order[i];
@@ -265,6 +365,111 @@ class GlancesApiService {
           case 'alert':
             if (data is Map<String, dynamic>) alert = data;
             break;
+          case 'gpu':
+            if (data is List) {
+              gpu = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'diskio':
+            if (data is List) {
+              diskio = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'folders':
+            if (data is List) {
+              folders = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'connections':
+            if (data is List) {
+              connections = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'containers':
+            if (data is List) {
+              containers = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'ports':
+            if (data is List) {
+              ports = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'vms':
+            if (data is List) {
+              vms = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'amps':
+            if (data is List) {
+              amps = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'cloud':
+            if (data is List) {
+              cloud = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'ip':
+            if (data is List) {
+              ip = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'irq':
+            if (data is List) {
+              irq = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'programlist':
+            if (data is List) {
+              programlist = data.map((item) {
+                if (item is Map<String, dynamic>) return item;
+                return <String, dynamic>{};
+              }).toList();
+            }
+            break;
+          case 'psutilversion':
+            if (data is Map<String, dynamic>) psutilversion = data;
+            break;
+          case 'help':
+            if (data is Map<String, dynamic>) help = data;
+            break;
+          case 'core':
+            if (data is Map<String, dynamic>) core = data;
+            break;
           default:
             // Прочие endpoint игнорируем на уровне текущей модели, но они уже не грузятся, если не нужны
             break;
@@ -291,6 +496,21 @@ class GlancesApiService {
         wifi: wifi,
         load: load,
         alert: alert,
+        gpu: gpu,
+        diskio: diskio,
+        folders: folders,
+        connections: connections,
+        containers: containers,
+        ports: ports,
+        vms: vms,
+        amps: amps,
+        cloud: cloud,
+        ip: ip,
+        irq: irq,
+        programlist: programlist,
+        psutilversion: psutilversion,
+        help: help,
+        core: core,
       );
     } on DioException catch (e) {
       return SystemMetrics.offline(errorMessage: e.message);
@@ -318,15 +538,34 @@ class GlancesApiService {
     }
   }
 
-  // Сканирование доступных endpoint-ов на сервере (быстрым методом)
+  // Сканирование доступных endpoint-ов на сервере (оптимизированным методом с кэшированием)
   Future<Map<String, bool>> scanAvailableEndpoints(ServerConfig server, {List<String>? endpoints}) async {
-    _setupAuth(server);
-    final apiVersion = await _determineApiVersion(server); // Получаем версию API
-    final apiUrl = '${server.url}/api/$apiVersion';
+    final cacheKey = _getCacheKey(server);
     final toCheck = endpoints ?? knownEndpoints;
+    
+    // Проверяем кэш
+    final cachedResults = _getCachedResults(cacheKey);
+    if (cachedResults != null) {
+      // Возвращаем только запрошенные endpoints из кэша
+      final result = <String, bool>{};
+      for (final ep in toCheck) {
+        result[ep] = cachedResults[ep] ?? false;
+      }
+      return result;
+    }
+
+    _setupAuth(server);
+    final apiVersion = await _determineApiVersion(server);
+    final apiUrl = '${server.url}/api/$apiVersion';
     final Map<String, bool> result = {};
 
-    await Future.wait(toCheck.map((ep) async {
+    // Разделяем endpoints на быстрые и медленные для оптимизации
+    final fastEndpointsToCheck = toCheck.where((ep) => fastEndpoints.contains(ep)).toList();
+    final slowEndpointsToCheck = toCheck.where((ep) => slowEndpoints.contains(ep)).toList();
+
+
+    // Проверяем быстрые endpoints с коротким таймаутом
+    await Future.wait(fastEndpointsToCheck.map((ep) async {
       try {
         final resp = await _dio.get('$apiUrl/$ep');
         result[ep] = (resp.statusCode == 200);
@@ -334,6 +573,19 @@ class GlancesApiService {
         result[ep] = false;
       }
     }));
+
+    // Проверяем медленные endpoints с увеличенным таймаутом
+    await Future.wait(slowEndpointsToCheck.map((ep) async {
+      try {
+        final resp = await _slowDio.get('$apiUrl/$ep');
+        result[ep] = (resp.statusCode == 200);
+      } catch (_) {
+        result[ep] = false;
+      }
+    }));
+
+    // Сохраняем результаты в кэш
+    _cacheResults(cacheKey, result);
 
     return result;
   }

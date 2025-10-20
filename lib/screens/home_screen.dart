@@ -116,8 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
     });
 
-    int onlineCount = 0;
-    int offlineCount = 0;
+    // Убираем счетчики, так как больше не показываем уведомления
 
     final futures = _servers.map((server) async {
       try {
@@ -126,7 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             // Обновляем только статус онлайн/офлайн, не загружая полные метрики
             if (isOnline) {
-              onlineCount++;
               // Если сервер онлайн, но метрик нет - создаем минимальные онлайн метрики
               if (_serverMetrics[server.id] == null || !_serverMetrics[server.id]!.isOnline) {
                 _serverMetrics[server.id] = SystemMetrics(
@@ -154,13 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             } else {
-              offlineCount++;
               _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: 'Сервер недоступен');
             }
           });
         }
       } catch (e) {
-        offlineCount++;
         if (mounted) {
           setState(() {
             _serverMetrics[server.id] = SystemMetrics.offline(errorMessage: e.toString());
@@ -177,27 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
 
-      // Показываем результат проверки
-      String message;
-      Color backgroundColor;
-      if (onlineCount == _servers.length) {
-        message = '✅ Все серверы онлайн ($onlineCount)';
-        backgroundColor = Colors.green;
-      } else if (offlineCount == _servers.length) {
-        message = '❌ Все серверы офлайн ($offlineCount)';
-        backgroundColor = Colors.red;
-      } else {
-        message = '⚠️ Онлайн: $onlineCount, Офлайн: $offlineCount';
-        backgroundColor = Colors.orange;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: backgroundColor,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      // Обновляем данные без показа уведомлений
     }
   }
 

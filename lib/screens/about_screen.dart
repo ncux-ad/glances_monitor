@@ -314,19 +314,12 @@ Glances API: v3/v4
 ''';
     
     Clipboard.setData(ClipboardData(text: versionInfo));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Информация о версии скопирована в буфер обмена')),
-    );
+    // Информация скопирована без уведомления
   }
 
   void _openGitHub(BuildContext context) {
     // В реальном приложении здесь можно использовать url_launcher
     // для открытия ссылки в браузере
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('GitHub: https://github.com/ncux-ad/glances_monitor'),
-        duration: Duration(seconds: 3),
-      ),
-    );
+    // GitHub: https://github.com/ncux-ad/glances_monitor
   }
 }

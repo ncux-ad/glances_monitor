@@ -431,20 +431,9 @@ class _AddServerScreenState extends State<AddServerScreen> {
 
     try {
       final server = _createServerFromForm();
-      final isConnected = await _apiService.testConnection(server);
+      await _apiService.testConnection(server);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isConnected
-                  ? 'Подключение успешно!'
-                  : 'Не удалось подключиться к серверу',
-            ),
-            backgroundColor: isConnected ? Colors.green : Colors.red,
-          ),
-        );
-      }
+      // Тестируем подключение без показа уведомлений
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

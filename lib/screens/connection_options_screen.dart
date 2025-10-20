@@ -277,9 +277,7 @@ class _ConnectionOptionsScreenState extends State<ConnectionOptionsScreen> {
             icon: const Icon(Icons.copy),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: text));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$label скопировано в буфер обмена')),
-              );
+              // Информация скопирована в буфер обмена
             },
           ),
         ],

@@ -644,9 +644,7 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
                   );
                   Clipboard.setData(ClipboardData(text: log));
                   Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Лог скопирован в буфер обмена')),
-                  );
+                  // Лог скопирован в буфер обмена
                 },
               ),
               ListTile(

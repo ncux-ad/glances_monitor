@@ -109,6 +109,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         setState(() {
           _metrics = metrics;
         });
+        
+        
+        // Обновляем данные без показа уведомлений
       }
     } catch (e) {
       if (mounted) {
@@ -144,16 +147,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   Future<void> _onToggleEndpoint(String ep, bool selected) async {
     // Проверяем доступность endpoint перед включением
     if (selected && _endpointsAvailability.containsKey(ep) && !_endpointsAvailability[ep]!) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Endpoint "$ep" недоступен на этом сервере'),
-          action: SnackBarAction(
-            label: 'Обновить статус',
-            onPressed: _checkEndpointsAvailability,
-          ),
-        ),
-      );
-      return;
+      return; // Просто не включаем недоступный endpoint
     }
 
     setState(() {
@@ -167,15 +161,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       widget.server.copyWith(selectedEndpoints: _selectedEndpoints.toList()),
     );
     
-    // Показываем уведомление о загрузке дополнительных данных
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(selected 
-          ? 'Загружаем данные из "$ep"...' 
-          : 'Отключен endpoint "$ep"'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    // Обновляем данные без показа уведомлений
+    
+    
     
     await _loadMetrics();
   }
@@ -208,8 +196,15 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       setState(() {
         _endpointsAvailability = availability;
       });
+      
+      
     } catch (e) {
-      // Игнорируем ошибки проверки endpoints
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Ошибка проверки endpoints: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -366,24 +361,32 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
 
     return RefreshIndicator(
       onRefresh: _loadMetrics,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildServerInfo(),
-            const SizedBox(height: 12),
-            const SizedBox(height: 12),
-            if (_showAdvancedOptions) ...[
-              _buildEndpointSelector(),
-              const SizedBox(height: 12),
-            ],
-            const SizedBox(height: 16),
-            _buildMetricsGrid(),
-            const SizedBox(height: 16),
-            _buildDetailedMetrics(),
-          ],
-        ),
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildServerInfo(),
+                const SizedBox(height: 12),
+                const SizedBox(height: 12),
+                if (_showAdvancedOptions) ...[
+                  _buildEndpointSelector(),
+                  const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 16),
+                _buildMetricsGrid(),
+                const SizedBox(height: 16),
+              ]),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverToBoxAdapter(
+              child: _buildDetailedMetrics(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -575,47 +578,99 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Простой заголовок с кнопкой и счетчиком
-            Row(
-              children: [
-                Expanded(
-                  child: Row(
+            // Адаптивный заголовок с кнопкой и счетчиком
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 400) {
+                  // Для узких экранов - вертикальный layout
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Endpoint API (дополнительно)',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                      if (_selectedEndpoints.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
+                      Row(
+                        children: [
+                          const Text(
+                            'Endpoint API (дополнительно)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                           ),
-                          child: Text(
-                            '${_selectedEndpoints.length} активных',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w500,
+                          if (_selectedEndpoints.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${_selectedEndpoints.length} активных',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: _checkEndpointsAvailability,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Проверить доступность'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           ),
                         ),
-                      ],
+                      ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: _checkEndpointsAvailability,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Проверить'),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                ),
-              ],
+                  );
+                } else {
+                  // Для широких экранов - горизонтальный layout
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Endpoint API (дополнительно)',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                            if (_selectedEndpoints.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${_selectedEndpoints.length} активных',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: _checkEndpointsAvailability,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Проверить'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
             const SizedBox(height: 8),
             // Компактный Wrap для всех размеров экрана
@@ -783,18 +838,60 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   }
 
   Widget _buildDetailedMetrics() {
-    if (_metrics == null || !_metrics!.isOnline) {
+    if (_metrics == null) {
+      return const SizedBox.shrink();
+    }
+    
+    // Показываем детальную информацию даже если isOnline = false, если есть данные
+    if (!_metrics!.isOnline && !_hasAdditionalData()) {
       return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Детальная информация',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Детальная информация',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_hasAdditionalData()) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Дополнительные данные',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (_hasAdditionalData()) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Расширенная информация о системе: процессы, версии, сенсоры и другие детали',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 12),
         _buildMetricTabs(),
@@ -805,28 +902,38 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   }
 
   Widget _buildTabContent() {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: IndexedStack(
-        index: _tabController.index,
+    return SizedBox(
+      height: 350, // Уменьшенная высота для лучшего отображения
+      child: TabBarView(
+        controller: _tabController,
         children: [
-          // Добавляем ключи для принудительного обновления контента
-          KeyedSubtree(
-            key: ValueKey('system_${_contentUpdateCounter}_${_tabController.index}'),
-            child: _buildSystemTab(),
+          SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: KeyedSubtree(
+              key: ValueKey('system_${_contentUpdateCounter}_${_tabController.index}'),
+              child: _buildSystemTab(),
+            ),
           ),
-          KeyedSubtree(
-            key: ValueKey('network_${_contentUpdateCounter}_${_tabController.index}'),
-            child: _buildNetworkTab(),
+          SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: KeyedSubtree(
+              key: ValueKey('network_${_contentUpdateCounter}_${_tabController.index}'),
+              child: _buildNetworkTab(),
+            ),
           ),
-          KeyedSubtree(
-            key: ValueKey('storage_${_contentUpdateCounter}_${_tabController.index}'),
-            child: _buildStorageTab(),
+          SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: KeyedSubtree(
+              key: ValueKey('storage_${_contentUpdateCounter}_${_tabController.index}'),
+              child: _buildStorageTab(),
+            ),
           ),
-          KeyedSubtree(
-            key: ValueKey('performance_${_contentUpdateCounter}_${_tabController.index}'),
-            child: _buildPerformanceTab(),
+          SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: KeyedSubtree(
+              key: ValueKey('performance_${_contentUpdateCounter}_${_tabController.index}'),
+              child: _buildPerformanceTab(),
+            ),
           ),
         ],
       ),
@@ -911,6 +1018,11 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
 
   Widget _buildDetailedCard(String title, String icon, List<String> details) {
     final theme = Theme.of(context);
+    
+    // Ограничиваем количество отображаемых деталей для предотвращения переполнения
+    final maxDetails = 8;
+    final displayDetails = details.take(maxDetails).toList();
+    final hasMore = details.length > maxDetails;
 
     return Card(
       child: Padding(
@@ -922,19 +1034,37 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
               children: [
                 Text(icon, style: const TextStyle(fontSize: 20)),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 17,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                    ),
                   ),
                 ),
               ],
             ),
-            ...details.map((detail) => Text(
-              detail,
-              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 16),
+            const SizedBox(height: 8),
+            ...displayDetails.map((detail) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                detail,
+                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 14),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             )),
+            if (hasMore) ...[
+              const SizedBox(height: 4),
+              Text(
+                '... и ещё ${details.length - maxDetails} элементов',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -950,6 +1080,36 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       default:
         return Colors.grey; // Неизвестная версия - серый
     }
+  }
+
+  bool _hasAdditionalData() {
+    if (_metrics == null) return false;
+    
+    return _metrics!.uptimeText != null ||
+           _metrics!.systemInfo != null ||
+           _metrics!.versionInfo != null ||
+           _metrics!.processCount != null ||
+           _metrics!.sensors != null ||
+           _metrics!.smart != null ||
+           _metrics!.docker != null ||
+           _metrics!.wifi != null ||
+           _metrics!.load != null ||
+           _metrics!.alert != null ||
+           _metrics!.gpu != null ||
+           _metrics!.diskio != null ||
+           _metrics!.folders != null ||
+           _metrics!.connections != null ||
+           _metrics!.containers != null ||
+           _metrics!.ports != null ||
+           _metrics!.vms != null ||
+           _metrics!.amps != null ||
+           _metrics!.cloud != null ||
+           _metrics!.ip != null ||
+           _metrics!.irq != null ||
+           _metrics!.programlist != null ||
+           _metrics!.psutilversion != null ||
+           _metrics!.help != null ||
+           _metrics!.core != null;
   }
 
   Widget _buildNetworkDetailedCard() {

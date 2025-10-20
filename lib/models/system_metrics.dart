@@ -43,6 +43,21 @@ class SystemMetrics {
   final List<Map<String, dynamic>>? wifi; // из /wifi
   final Map<String, dynamic>? load; // из /load
   final Map<String, dynamic>? alert; // из /alert
+  final List<Map<String, dynamic>>? gpu; // из /gpu
+  final List<Map<String, dynamic>>? diskio; // из /diskio
+  final List<Map<String, dynamic>>? folders; // из /folders
+  final List<Map<String, dynamic>>? connections; // из /connections
+  final List<Map<String, dynamic>>? containers; // из /containers
+  final List<Map<String, dynamic>>? ports; // из /ports
+  final List<Map<String, dynamic>>? vms; // из /vms
+  final List<Map<String, dynamic>>? amps; // из /amps
+  final List<Map<String, dynamic>>? cloud; // из /cloud
+  final List<Map<String, dynamic>>? ip; // из /ip
+  final List<Map<String, dynamic>>? irq; // из /irq
+  final List<Map<String, dynamic>>? programlist; // из /programlist
+  final Map<String, dynamic>? psutilversion; // из /psutilversion
+  final Map<String, dynamic>? help; // из /help
+  final Map<String, dynamic>? core; // из /core
 
   const SystemMetrics({
     required this.cpuPercent,
@@ -85,6 +100,21 @@ class SystemMetrics {
     this.wifi,
     this.load,
     this.alert,
+    this.gpu,
+    this.diskio,
+    this.folders,
+    this.connections,
+    this.containers,
+    this.ports,
+    this.vms,
+    this.amps,
+    this.cloud,
+    this.ip,
+    this.irq,
+    this.programlist,
+    this.psutilversion,
+    this.help,
+    this.core,
   });
 
   factory SystemMetrics.offline({String? errorMessage}) {
@@ -151,6 +181,21 @@ class SystemMetrics {
     List<Map<String, dynamic>>? wifi,
     Map<String, dynamic>? load,
     Map<String, dynamic>? alert,
+    List<Map<String, dynamic>>? gpu,
+    List<Map<String, dynamic>>? diskio,
+    List<Map<String, dynamic>>? folders,
+    List<Map<String, dynamic>>? connections,
+    List<Map<String, dynamic>>? containers,
+    List<Map<String, dynamic>>? ports,
+    List<Map<String, dynamic>>? vms,
+    List<Map<String, dynamic>>? amps,
+    List<Map<String, dynamic>>? cloud,
+    List<Map<String, dynamic>>? ip,
+    List<Map<String, dynamic>>? irq,
+    List<Map<String, dynamic>>? programlist,
+    Map<String, dynamic>? psutilversion,
+    Map<String, dynamic>? help,
+    Map<String, dynamic>? core,
   }) {
     // CPU данные
     final cpuPercent = (quicklook['cpu'] as num?)?.toDouble() ?? 0.0;
@@ -248,6 +293,21 @@ class SystemMetrics {
       wifi: wifi,
       load: load,
       alert: alert,
+      gpu: gpu,
+      diskio: diskio,
+      folders: folders,
+      connections: connections,
+      containers: containers,
+      ports: ports,
+      vms: vms,
+      amps: amps,
+      cloud: cloud,
+      ip: ip,
+      irq: irq,
+      programlist: programlist,
+      psutilversion: psutilversion,
+      help: help,
+      core: core,
     );
   }
 
