@@ -37,6 +37,11 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    // Настройки для оптимизации памяти
+    dexOptions {
+        javaMaxHeapSize "4g"
+    }
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
@@ -55,6 +60,8 @@ android {
         ndk {
             abiFilters.clear()
         }
+        // Настройки для оптимизации памяти
+        multiDexEnabled true
     }
 
     buildTypes {

@@ -45,7 +45,10 @@ class MetricCard extends StatelessWidget {
                   children: [
                     Text(
                       icon,
-                      style: TextStyle(fontSize: isCompact ? 10.7 : 13.3),
+                      style: TextStyle(
+                        fontSize: isCompact ? 10.7 : 13.3,
+                        height: 0.67, // Уменьшаем высоту в 1.5 раза (1/1.5 = 0.67)
+                      ),
                     ),
                     const SizedBox(width: 2),
                     Flexible(
@@ -152,7 +155,10 @@ class MetricCardWithDetails extends StatelessWidget {
               children: [
                 Text(
                   icon,
-                  style: const TextStyle(fontSize: 16),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 0.67, // Уменьшаем высоту в 1.5 раза
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(

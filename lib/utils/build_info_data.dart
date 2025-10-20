@@ -3,8 +3,8 @@
 
 class BuildInfoData {
   static const String version = '0.0.1';
-  static const String buildNumber = '14';
-  static const String commitHash = '53c2507';
+  static const String buildNumber = '15';
+  static const String commitHash = 'e7ef14d';
   static const String buildDate = '2025-10-21';
-  static const String fullCommitHash = '53c250764237e547e8f59d6b8ca1dc2fa2551fba';
+  static const String fullCommitHash = 'e7ef14daff2643a33107cc178ae7af66005ef7cd';
 }
