@@ -30,6 +30,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   bool _showAdvancedOptions = false;
   Map<String, bool> _endpointsAvailability = {};
   late ScrollController _scrollController;
+  int _contentUpdateCounter = 0;
 
 
   @override
@@ -42,6 +43,10 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         : 'auto';
     _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
     _scrollController = ScrollController();
+    
+    // Добавляем слушатель изменений TabController
+    _tabController.addListener(_onTabChanged);
+    
     _loadMetrics();
     _startAutoRefresh();
   }
@@ -49,9 +54,23 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      // Сбрасываем scroll position при переключении вкладок
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+      // Увеличиваем счетчик для принудительного обновления контента
+      _contentUpdateCounter++;
+      // Принудительно обновляем состояние для перерисовки контента
+      setState(() {});
+    }
   }
 
   void _startAutoRefresh() {
@@ -636,6 +655,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       child: TabBar(
         controller: _tabController,
         tabAlignment: TabAlignment.fill,
+        isScrollable: false,
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelPadding: EdgeInsets.zero,
         onTap: (index) {
           // Сбрасываем scroll position при переключении вкладок
           if (_scrollController.hasClients) {
@@ -699,10 +721,23 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       child: IndexedStack(
         index: _tabController.index,
         children: [
-          _buildSystemTab(),
-          _buildNetworkTab(),
-          _buildStorageTab(),
-          _buildPerformanceTab(),
+          // Добавляем ключи для принудительного обновления контента
+          KeyedSubtree(
+            key: ValueKey('system_${_contentUpdateCounter}_${_tabController.index}'),
+            child: _buildSystemTab(),
+          ),
+          KeyedSubtree(
+            key: ValueKey('network_${_contentUpdateCounter}_${_tabController.index}'),
+            child: _buildNetworkTab(),
+          ),
+          KeyedSubtree(
+            key: ValueKey('storage_${_contentUpdateCounter}_${_tabController.index}'),
+            child: _buildStorageTab(),
+          ),
+          KeyedSubtree(
+            key: ValueKey('performance_${_contentUpdateCounter}_${_tabController.index}'),
+            child: _buildPerformanceTab(),
+          ),
         ],
       ),
     );
