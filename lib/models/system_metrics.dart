@@ -20,6 +20,7 @@ class SystemMetrics {
   final String networkInterface;
   final int networkRx;
   final int networkTx;
+  final String uptime;
   final bool isOnline;
   final String? errorMessage;
 
@@ -43,6 +44,7 @@ class SystemMetrics {
     required this.networkInterface,
     required this.networkRx,
     required this.networkTx,
+    required this.uptime,
     required this.isOnline,
     this.errorMessage,
   });
@@ -68,6 +70,7 @@ class SystemMetrics {
       networkInterface: 'Неизвестно',
       networkRx: 0,
       networkTx: 0,
+      uptime: 'Неизвестно',
       isOnline: false,
       errorMessage: errorMessage,
     );
@@ -80,6 +83,7 @@ class SystemMetrics {
     required List<dynamic> disk,
     required Map<String, dynamic> cpu,
     required List<dynamic> network,
+    required String uptime,
     required int apiVersion,
   }) {
     // CPU данные
@@ -109,15 +113,21 @@ class SystemMetrics {
     final diskFree = (rootDisk?['free'] as num?)?.toInt() ?? 0;
 
     // Network данные
-    final mainInterface = network.firstWhere(
-      (iface) => iface['interface_name'] != 'lo' && 
-                 iface['interface_name'] != 'docker0' && 
-                 iface['is_up'] == true,
-      orElse: () => network.isNotEmpty ? network.first : {},
-    );
-    final networkInterface = mainInterface['interface_name'] as String? ?? 'Неизвестно';
     final rxField = apiVersion == 3 ? 'rx' : 'cumulative_rx';
     final txField = apiVersion == 3 ? 'tx' : 'cumulative_tx';
+
+    network.sort((a, b) {
+      final aTraffic = (a[rxField] as num? ?? 0) + (a[txField] as num? ?? 0);
+      final bTraffic = (b[rxField] as num? ?? 0) + (b[txField] as num? ?? 0);
+      return bTraffic.compareTo(aTraffic);
+    });
+
+    final mainInterface = network.firstWhere(
+      (iface) => iface['interface_name'] != 'lo' && iface['interface_name'] != 'docker0',
+      orElse: () => network.isNotEmpty ? network.first : {},
+    );
+
+    final networkInterface = mainInterface['interface_name'] as String? ?? 'Неизвестно';
     final networkRx = (mainInterface[rxField] as num?)?.toInt() ?? 0;
     final networkTx = (mainInterface[txField] as num?)?.toInt() ?? 0;
 
@@ -141,6 +151,7 @@ class SystemMetrics {
       networkInterface: networkInterface,
       networkRx: networkRx,
       networkTx: networkTx,
+      uptime: uptime,
       isOnline: true,
     );
   }

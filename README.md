@@ -20,8 +20,8 @@
 ### Сборка
 ```bash
 # Клонирование репозитория
-git clone <repository-url>
-cd glances_monitor_new
+git clone https://github.com/ncux-ad/glances_monitor.git
+cd glances_monitor
 
 # Установка зависимостей
 flutter pub get
@@ -49,13 +49,13 @@ flutter build ios --release
 2. **Примеры серверов:**
    ```
    Example Server 1:
-   - URL: http://your-server-ip:61209
+   - URL: http://your-server-ip:61208
    - Username: your-username
    - Password: your-password
    - Flag: 🇺🇸
 
    Example Server 2:
-   - URL: http://another-server-ip:61209
+   - URL: http://another-server-ip:61208
    - Username: another-username
    - Password: another-password
    - Flag: 🇪🇺
@@ -97,10 +97,10 @@ flutter build ios --release
 pip install glances
 
 # Запуск с API
-glances -w --bind 0.0.0.0 --port 61209
+glances -w --bind 0.0.0.0 --port 61208
 
 # С настройкой аутентификации (рекомендуется)
-glances -w --bind 0.0.0.0 --port 61209 --username your-username --password your-secure-password
+Осуществляется силами nginx
 ```
 
 ## 🏗️ Архитектура

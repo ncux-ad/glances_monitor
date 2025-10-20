@@ -242,6 +242,11 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
             if (_metrics != null && _metrics!.isOnline) ...[
               const SizedBox(height: 12),
               Text(
+                'Uptime: ${_metrics!.uptime}',
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
                 'CPU: ${_metrics!.cpuName}',
                 style: theme.textTheme.bodyMedium,
               ),

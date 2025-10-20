@@ -58,6 +58,7 @@ class GlancesApiService {
         _dio.get('$apiUrl/fs'),
         _dio.get('$apiUrl/cpu'),
         _dio.get('$apiUrl/network'),
+        _dio.get('$apiUrl/uptime'), // Добавляем запрос для uptime
       ]);
 
       return SystemMetrics.fromGlancesData(
@@ -67,6 +68,7 @@ class GlancesApiService {
         disk: responses[3].data as List<dynamic>,
         cpu: responses[4].data as Map<String, dynamic>,
         network: responses[5].data as List<dynamic>,
+        uptime: responses[6].data as String, // uptime приходит как простая строка
         apiVersion: _apiVersion,
       );
     } on DioException catch (e) {
