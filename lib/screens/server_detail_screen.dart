@@ -52,21 +52,18 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
   Future<void> _loadMetrics() async {
     if (_isLoading) return;
 
-    print('🔍 Загрузка метрик для сервера: ${widget.server.name}');
     setState(() {
       _isLoading = true;
     });
 
     try {
       final metrics = await _apiService.fetchMetrics(widget.server);
-      print('✅ Метрики получены: online=${metrics.isOnline}, error=${metrics.errorMessage}');
       if (mounted) {
         setState(() {
           _metrics = metrics;
         });
       }
     } catch (e) {
-      print('❌ Ошибка загрузки метрик: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -98,8 +95,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.server.flag} ${widget.server.name}'),
@@ -120,17 +115,13 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
   }
 
   Widget _buildBody() {
-    print('🔍 _buildBody: isLoading=$_isLoading, metrics=${_metrics != null}');
-    
     if (_isLoading && _metrics == null) {
-      print('⏳ Показываем загрузку...');
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
 
     if (_metrics == null) {
-      print('❌ Показываем ошибку, metrics=null');
       return _buildErrorState();
     }
 
@@ -276,22 +267,18 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Определяем количество колонок в зависимости от ширины экрана
         int crossAxisCount;
         double childAspectRatio;
         
         if (constraints.maxWidth > 800) {
-          // Планшеты и широкие экраны - 4 колонки
           crossAxisCount = 4;
           childAspectRatio = 1.2;
         } else if (constraints.maxWidth > 600) {
-          // Средние экраны - 3 колонки
           crossAxisCount = 3;
           childAspectRatio = 1.3;
         } else {
-          // Мобильные устройства - 2 колонки, квадратные для портрета
           crossAxisCount = 2;
-          childAspectRatio = 0.95;
+          childAspectRatio = 1.2;
         }
 
         return GridView.count(
@@ -299,15 +286,15 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: crossAxisCount,
           childAspectRatio: childAspectRatio,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
           children: [
             MetricCard(
               title: 'CPU',
               icon: '💻',
               value: _metrics!.cpuPercent,
               unit: '%',
-              subtitle: '${_metrics!.cpuCores} ядер',
+              subtitle: '${_metrics!.cpuCores} ${_getCoresText(_metrics!.cpuCores)}',
             ),
             MetricCard(
               title: 'RAM',
@@ -326,7 +313,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
             MetricCard(
               title: 'Сеть',
               icon: '🌐',
-              value: 0, // Нет процента для сети
+              value: 0,
               unit: '',
               subtitle: _metrics!.networkInterface,
             ),
@@ -361,6 +348,18 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           ],
         ),
         const SizedBox(height: 12),
+        if (_metrics!.swapTotal > 0) ...[
+          _buildDetailedCard(
+            'Swap',
+            '🔄',
+            [
+              'Использовано: ${_metrics!.formatBytes(_metrics!.swapUsed)}',
+              'Свободно: ${_metrics!.formatBytes(_metrics!.swapFree)}',
+              'Всего: ${_metrics!.formatBytes(_metrics!.swapTotal)}',
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         _buildDetailedCard(
           'Диск',
           '💾',
@@ -384,12 +383,18 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     );
   }
 
+  String _getCoresText(int cores) {
+    if (cores == 1) return 'ядро';
+    if (cores >= 2 && cores <= 4) return 'ядра';
+    return 'ядер';
+  }
+
   Widget _buildDetailedCard(String title, String icon, List<String> details) {
     final theme = Theme.of(context);
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -401,17 +406,14 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
                   title,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
+                    fontSize: 17,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            ...details.map((detail) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Text(
-                detail,
-                style: theme.textTheme.bodyMedium,
-              ),
+            ...details.map((detail) => Text(
+              detail,
+              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 16),
             )),
           ],
         ),
@@ -419,4 +421,3 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     );
   }
 }
-

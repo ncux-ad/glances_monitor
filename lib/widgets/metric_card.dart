@@ -31,13 +31,13 @@ class MetricCard extends StatelessWidget {
         builder: (context, constraints) {
           // Адаптивные размеры в зависимости от доступного пространства
           final isCompact = constraints.maxHeight < 120 || constraints.maxWidth < 180;
-          final padding = isCompact ? 6.0 : 8.0;
+          final padding = isCompact ? 4.0 : 6.0;
           
           return Padding(
             padding: EdgeInsets.all(padding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Заголовок с иконкой
                 Row(
@@ -45,15 +45,21 @@ class MetricCard extends StatelessWidget {
                   children: [
                     Text(
                       icon,
-                      style: TextStyle(fontSize: isCompact ? 16.0 : 24.0),
+                      style: TextStyle(fontSize: isCompact ? 16.0 : 20.0),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2),
                     Flexible(
                       child: Text(
                         title,
                         style: isCompact 
-                            ? theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)
-                            : theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ? theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              )
+                            : theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 17,
+                              ),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                       ),
@@ -64,8 +70,16 @@ class MetricCard extends StatelessWidget {
                 Text(
                   '${value.toStringAsFixed(1)}$unit',
                   style: isCompact
-                      ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: progressColor)
-                      : theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: progressColor),
+                      ? theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold, 
+                          color: progressColor,
+                          fontSize: 18,
+                        )
+                      : theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold, 
+                          color: progressColor,
+                          fontSize: 20,
+                        ),
                   textAlign: TextAlign.center,
                 ),
                 // Прогресс-бар
@@ -73,22 +87,20 @@ class MetricCard extends StatelessWidget {
                   value: value / 100,
                   backgroundColor: theme.colorScheme.outline.withOpacity(0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                  minHeight: isCompact ? 4 : 6,
+                  minHeight: isCompact ? 4 : 5,
                 ),
-                // Подпись (только если есть достаточно места)
-                if (subtitle != null && !isCompact && constraints.maxHeight > 140) ...[
-                  const SizedBox(height: 2),
+                // Подпись (всегда показываем, но компактно)
+                if (subtitle != null)
                   Text(
                     subtitle!,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withOpacity(0.7),
-                      fontSize: 9,
+                      fontSize: isCompact ? 12 : 13,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                   ),
-                ],
               ],
             ),
           );
@@ -193,4 +205,3 @@ class MetricCardWithDetails extends StatelessWidget {
     }
   }
 }
-

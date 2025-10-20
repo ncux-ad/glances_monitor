@@ -4,6 +4,7 @@ class SystemMetrics {
   final double cpuPercent;
   final double memPercent;
   final double diskPercent;
+  final double swapPercent;
   final int memTotal;
   final int memUsed;
   final int memFree;
@@ -26,6 +27,7 @@ class SystemMetrics {
     required this.cpuPercent,
     required this.memPercent,
     required this.diskPercent,
+    required this.swapPercent,
     required this.memTotal,
     required this.memUsed,
     required this.memFree,
@@ -50,6 +52,7 @@ class SystemMetrics {
       cpuPercent: 0.0,
       memPercent: 0.0,
       diskPercent: 0.0,
+      swapPercent: 0.0,
       memTotal: 0,
       memUsed: 0,
       memFree: 0,
@@ -77,6 +80,7 @@ class SystemMetrics {
     required List<dynamic> disk,
     required Map<String, dynamic> cpu,
     required List<dynamic> network,
+    required int apiVersion,
   }) {
     // CPU данные
     final cpuPercent = (quicklook['cpu'] as num?)?.toDouble() ?? 0.0;
@@ -91,6 +95,7 @@ class SystemMetrics {
     final memFree = (memory['free'] as num?)?.toInt() ?? 0;
 
     // Swap данные
+    final swapPercent = (memswap['percent'] as num?)?.toDouble() ?? 0.0;
     final swapTotal = (memswap['total'] as num?)?.toInt() ?? 0;
     final swapUsed = (memswap['used'] as num?)?.toInt() ?? 0;
     final swapFree = (memswap['free'] as num?)?.toInt() ?? 0;
@@ -111,13 +116,16 @@ class SystemMetrics {
       orElse: () => network.isNotEmpty ? network.first : {},
     );
     final networkInterface = mainInterface['interface_name'] as String? ?? 'Неизвестно';
-    final networkRx = (mainInterface['cumulative_rx'] as num?)?.toInt() ?? 0;
-    final networkTx = (mainInterface['cumulative_tx'] as num?)?.toInt() ?? 0;
+    final rxField = apiVersion == 3 ? 'rx' : 'cumulative_rx';
+    final txField = apiVersion == 3 ? 'tx' : 'cumulative_tx';
+    final networkRx = (mainInterface[rxField] as num?)?.toInt() ?? 0;
+    final networkTx = (mainInterface[txField] as num?)?.toInt() ?? 0;
 
     return SystemMetrics(
       cpuPercent: cpuPercent,
       memPercent: memPercent,
       diskPercent: diskPercent,
+      swapPercent: swapPercent,
       memTotal: memTotal,
       memUsed: memUsed,
       memFree: memFree,
@@ -148,7 +156,6 @@ class SystemMetrics {
 
   @override
   String toString() {
-    return 'SystemMetrics(cpu: ${cpuPercent}%, mem: ${memPercent}%, disk: ${diskPercent}%, online: $isOnline)';
+    return 'SystemMetrics(cpu: ${cpuPercent}%, mem: ${memPercent}%, disk: ${diskPercent}%, swap: ${swapPercent}%, online: $isOnline)';
   }
 }
-
