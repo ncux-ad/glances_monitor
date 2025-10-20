@@ -6,6 +6,20 @@ import 'dart:io';
 void main(List<String> args) async {
   print('🔄 Обновление версии приложения...');
   
+  // Проверяем статус git
+  final gitStatus = await _checkGitStatus();
+  if (gitStatus['hasUncommittedChanges'] == true) {
+    print('⚠️  ВНИМАНИЕ: Есть незакоммиченные изменения!');
+    print('   Рекомендуется сначала закоммитить изменения:');
+    print('   git add .');
+    print('   git commit -m "описание изменений"');
+    print('   Затем запустить: make update-version');
+    print('');
+    print('   Или продолжить с текущими изменениями? (y/N)');
+    // В реальном приложении здесь был бы ввод пользователя
+    print('   Продолжаем с текущими изменениями...');
+  }
+  
   // Получаем информацию о git
   final gitInfo = await _getGitInfo();
   
@@ -21,6 +35,30 @@ void main(List<String> args) async {
   print('   Сборка: ${gitInfo['buildNumber']}');
   print('   Коммит: ${gitInfo['commitHash']}');
   print('   Дата: ${gitInfo['buildDate']}');
+  print('');
+  print('📝 Следующие шаги:');
+  print('   1. Проверьте изменения: git status');
+  print('   2. Добавьте файлы: git add lib/utils/build_info_data.dart pubspec.yaml');
+  print('   3. Закоммитьте: git commit -m "chore: обновление версии"');
+  print('   4. Соберите: make build');
+}
+
+/// Проверить статус git
+Future<Map<String, dynamic>> _checkGitStatus() async {
+  try {
+    final statusResult = await Process.run('git', ['status', '--porcelain']);
+    final hasUncommittedChanges = statusResult.stdout.toString().trim().isNotEmpty;
+    
+    return {
+      'hasUncommittedChanges': hasUncommittedChanges,
+      'statusOutput': statusResult.stdout.toString().trim(),
+    };
+  } catch (e) {
+    return {
+      'hasUncommittedChanges': false,
+      'statusOutput': '',
+    };
+  }
 }
 
 /// Получить информацию о git

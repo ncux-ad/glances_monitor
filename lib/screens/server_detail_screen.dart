@@ -34,6 +34,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   String _selectedNetworkInterface = 'auto';
   List<String> _availableNetworkInterfaces = [];
   String _selectedDetailTab = 'system';
+  late TabController _tabController;
 
   final Map<String, Set<String>> _presets = const {
     'Минимум': {'cpu', 'mem'},
@@ -49,6 +50,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     _selectedNetworkInterface = widget.server.selectedNetworkInterfaces.isNotEmpty 
         ? widget.server.selectedNetworkInterfaces.first 
         : 'auto';
+    _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
     _loadMetrics();
     _startAutoRefresh();
   }
@@ -56,6 +58,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -623,11 +626,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         ),
       ),
       child: TabBar(
-        controller: TabController(
-          length: 4,
-          initialIndex: 0,
-          vsync: this,
-        ),
+        controller: _tabController,
         onTap: (index) {
           setState(() {
             switch (index) {
@@ -697,6 +696,13 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   }
 
   Widget _buildTabContent() {
+    // Обновляем индекс TabController в зависимости от выбранной вкладки
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_tabController.index != _getTabIndex(_selectedDetailTab)) {
+        _tabController.animateTo(_getTabIndex(_selectedDetailTab));
+      }
+    });
+    
     switch (_selectedDetailTab) {
       case 'system':
         return _buildSystemTab();
@@ -708,6 +714,21 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         return _buildPerformanceTab();
       default:
         return _buildSystemTab();
+    }
+  }
+
+  int _getTabIndex(String tab) {
+    switch (tab) {
+      case 'system':
+        return 0;
+      case 'network':
+        return 1;
+      case 'storage':
+        return 2;
+      case 'performance':
+        return 3;
+      default:
+        return 0;
     }
   }
 

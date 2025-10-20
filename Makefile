@@ -35,9 +35,16 @@ update-version: ## Обновить версию и информацию о сб
 	@if command -v dart >/dev/null 2>&1; then \
 		dart scripts/update_version.dart; \
 		echo "$(GREEN)Версия обновлена$(NC)"; \
+		echo "$(YELLOW)Не забудьте закоммитить изменения версии!$(NC)"; \
 	else \
 		echo "$(YELLOW)Dart не найден. Пропускаем обновление версии.$(NC)"; \
 	fi
+
+commit-version: update-version ## Обновить версию и закоммитить
+	@echo "$(BLUE)Коммит обновления версии...$(NC)"
+	@git add lib/utils/build_info_data.dart pubspec.yaml
+	@git commit -m "chore: обновление версии до $(VERSION)+$(BUILD_NUMBER)"
+	@echo "$(GREEN)Версия закоммичена$(NC)"
 
 version: update-version ## Показать текущую версию
 	@echo "$(BLUE)Текущая версия:$(NC)"
