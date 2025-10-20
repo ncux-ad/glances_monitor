@@ -143,6 +143,43 @@ secrets.json
 config.json
 credentials.json
 
+# Server configuration with passwords
+*_CONFIG_UPDATE.md
+*_BASIC_AUTH_SETUP.md
+*_AUTH_*.md
+*_PASSWORD_*.md
+*_CREDENTIALS_*.md
+
+# Nginx configuration with passwords
+nginx/
+*.htpasswd
+/etc/nginx/.htpasswd
+
+# SSH keys and configs
+.ssh/
+ssh_config
+known_hosts
+
+# Environment files with secrets
+.env.production
+.env.staging
+.env.local
+.env.*.local
+
+# Database credentials
+database.yml
+db_config.json
+
+# API keys and tokens
+api_keys.json
+tokens.json
+*.token
+
+# Server passwords and credentials
+server_passwords.txt
+server_credentials.json
+server_config.json
+
 # Gradle
 .gradle/
 gradle-app.setting
