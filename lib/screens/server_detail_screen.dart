@@ -4,6 +4,8 @@ import '../models/server_config.dart';
 import '../models/system_metrics.dart';
 import '../services/glances_api_service.dart';
 import '../widgets/metric_card.dart';
+import '../services/storage_service.dart';
+import 'network_diagnostics_screen.dart';
 
 class ServerDetailScreen extends StatefulWidget {
   final ServerConfig server;
@@ -20,10 +22,32 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
   bool _isLoading = false;
   Timer? _refreshTimer;
   bool _autoRefresh = true;
+  final Map<String, String> _metricLabels = const {
+    'cpu': 'CPU',
+    'mem': 'Память',
+    'fs': 'Диск',
+    'network': 'Сеть',
+    'swap': 'Swap',
+  };
+  late Set<String> _selectedMetrics;
+  late Set<String> _selectedEndpoints;
+  String _selectedNetworkInterface = 'auto';
+  List<String> _availableNetworkInterfaces = [];
+
+  final Map<String, Set<String>> _presets = const {
+    'Минимум': {'cpu', 'mem'},
+    'Сеть': {'cpu', 'network', 'mem'},
+    'Полный': {'cpu', 'mem', 'fs', 'network', 'swap'},
+  };
 
   @override
   void initState() {
     super.initState();
+    _selectedMetrics = widget.server.selectedMetrics.toSet();
+    _selectedEndpoints = widget.server.selectedEndpoints.toSet();
+    _selectedNetworkInterface = widget.server.selectedNetworkInterfaces.isNotEmpty 
+        ? widget.server.selectedNetworkInterfaces.first 
+        : 'auto';
     _loadMetrics();
     _startAutoRefresh();
   }
@@ -57,7 +81,15 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     });
 
     try {
-      final metrics = await _apiService.fetchMetrics(widget.server);
+      // Используем текущий выбор метрик при запросе
+      final serverForFetch = widget.server.copyWith(
+        selectedMetrics: _selectedMetrics.toList(),
+        selectedEndpoints: _selectedEndpoints.toList(),
+        selectedNetworkInterfaces: _selectedNetworkInterface == 'auto' 
+            ? [] 
+            : [_selectedNetworkInterface],
+      );
+      final metrics = await _apiService.fetchMetrics(serverForFetch);
       if (mounted) {
         setState(() {
           _metrics = metrics;
@@ -93,6 +125,73 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     }
   }
 
+  Future<void> _onToggleMetric(String key, bool selected) async {
+    setState(() {
+      if (selected) {
+        _selectedMetrics.add(key);
+      } else {
+        _selectedMetrics.remove(key);
+      }
+    });
+    // Сохраняем выбор в хранилище
+    await StorageService.updateServer(
+      widget.server.copyWith(selectedMetrics: _selectedMetrics.toList()),
+    );
+    // Перезагружаем метрики под новый набор
+    await _loadMetrics();
+  }
+
+  Future<void> _onToggleEndpoint(String ep, bool selected) async {
+    setState(() {
+      if (selected) {
+        _selectedEndpoints.add(ep);
+      } else {
+        _selectedEndpoints.remove(ep);
+      }
+    });
+    await StorageService.updateServer(
+      widget.server.copyWith(selectedEndpoints: _selectedEndpoints.toList()),
+    );
+    await _loadMetrics();
+  }
+
+  Future<void> _onNetworkInterfaceChanged(String? newInterface) async {
+    if (newInterface == null) return;
+    
+    setState(() {
+      _selectedNetworkInterface = newInterface;
+    });
+    
+    await StorageService.updateServer(
+      widget.server.copyWith(
+        selectedNetworkInterfaces: newInterface == 'auto' 
+            ? [] 
+            : [newInterface],
+      ),
+    );
+    await _loadMetrics();
+  }
+
+  Future<void> _loadNetworkInterfaces() async {
+    try {
+      final interfaces = await _apiService.fetchNetworkInterfaces(widget.server);
+      if (mounted) {
+        setState(() {
+          _availableNetworkInterfaces = interfaces;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка получения интерфейсов: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,6 +206,17 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _loadMetrics,
+          ),
+          IconButton(
+            icon: const Icon(Icons.network_check),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => NetworkDiagnosticsScreen(server: widget.server),
+                ),
+              );
+            },
+            tooltip: 'Диагностика сети',
           ),
         ],
       ),
@@ -133,6 +243,12 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildServerInfo(),
+            const SizedBox(height: 12),
+            _buildMetricSelector(),
+            const SizedBox(height: 12),
+            _buildEndpointSelector(),
+            const SizedBox(height: 12),
+            _buildNetworkInterfaceSelector(),
             const SizedBox(height: 16),
             _buildMetricsGrid(),
             const SizedBox(height: 16),
@@ -260,6 +376,152 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     );
   }
 
+  Widget _buildMetricSelector() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Выбор метрик',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: _presets.entries.map((e) {
+                return ActionChip(
+                  label: Text(e.key),
+                  onPressed: () async {
+                    setState(() {
+                      _selectedMetrics = Set.of(e.value);
+                    });
+                    await StorageService.updateServer(
+                      widget.server.copyWith(selectedMetrics: _selectedMetrics.toList()),
+                    );
+                    await _loadMetrics();
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: _metricLabels.keys.map((key) {
+                return FilterChip(
+                  label: Text(_metricLabels[key]!),
+                  selected: _selectedMetrics.contains(key),
+                  onSelected: (val) => _onToggleMetric(key, val),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEndpointSelector() {
+    final labels = <String, String>{
+      'uptime': 'Uptime',
+      'system': 'System',
+      'version': 'Version',
+      'processcount': 'Processes',
+      'percpu': 'Per-CPU',
+      'load': 'Load',
+      'diskio': 'Disk I/O',
+      'folders': 'Folders',
+      'sensors': 'Sensors',
+      'smart': 'SMART',
+      'raid': 'RAID',
+      'docker': 'Docker',
+    };
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Endpoint API (дополнительно)',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: labels.keys.map((ep) {
+                return FilterChip(
+                  label: Text(labels[ep]!),
+                  selected: _selectedEndpoints.contains(ep),
+                  onSelected: (val) => _onToggleEndpoint(ep, val),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNetworkInterfaceSelector() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Сетевой интерфейс',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _loadNetworkInterfaces,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Обновить'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedNetworkInterface,
+              decoration: const InputDecoration(
+                labelText: 'Выберите интерфейс',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: 'auto',
+                  child: Text('Автоматически'),
+                ),
+                ..._availableNetworkInterfaces.map((iface) => DropdownMenuItem(
+                  value: iface,
+                  child: Text(iface),
+                )),
+              ],
+              onChanged: _onNetworkInterfaceChanged,
+            ),
+            if (_selectedNetworkInterface != 'auto' && _metrics?.networkInterface != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Текущий: ${_metrics!.networkInterface}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMetricsGrid() {
     if (_metrics == null || !_metrics!.isOnline) {
       return const SizedBox.shrink();
@@ -281,6 +543,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           childAspectRatio = 1.2;
         }
 
+        final selected = _selectedMetrics;
         return GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -289,34 +552,38 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
           children: [
-            MetricCard(
-              title: 'CPU',
-              icon: '💻',
-              value: _metrics!.cpuPercent,
-              unit: '%',
-              subtitle: '${_metrics!.cpuCores} ${_getCoresText(_metrics!.cpuCores)}',
-            ),
-            MetricCard(
-              title: 'RAM',
-              icon: '🧠',
-              value: _metrics!.memPercent,
-              unit: '%',
-              subtitle: '${_metrics!.formatBytes(_metrics!.memUsed)}/${_metrics!.formatBytes(_metrics!.memTotal)}',
-            ),
-            MetricCard(
-              title: 'Диск',
-              icon: '💾',
-              value: _metrics!.diskPercent,
-              unit: '%',
-              subtitle: '${_metrics!.formatBytes(_metrics!.diskUsed)}/${_metrics!.formatBytes(_metrics!.diskTotal)}',
-            ),
-            MetricCard(
-              title: 'Сеть',
-              icon: '🌐',
-              value: 0,
-              unit: '',
-              subtitle: _metrics!.networkInterface,
-            ),
+            if (selected.contains('cpu'))
+              MetricCard(
+                title: 'CPU',
+                icon: '💻',
+                value: _metrics!.cpuPercent,
+                unit: '%',
+                subtitle: '${_metrics!.cpuCores} ${_getCoresText(_metrics!.cpuCores)}',
+              ),
+            if (selected.contains('mem'))
+              MetricCard(
+                title: 'RAM',
+                icon: '🧠',
+                value: _metrics!.memPercent,
+                unit: '%',
+                subtitle: '${_metrics!.formatBytes(_metrics!.memUsed)}/${_metrics!.formatBytes(_metrics!.memTotal)}',
+              ),
+            if (selected.contains('fs'))
+              MetricCard(
+                title: 'Диск',
+                icon: '💾',
+                value: _metrics!.diskPercent,
+                unit: '%',
+                subtitle: '${_metrics!.formatBytes(_metrics!.diskUsed)}/${_metrics!.formatBytes(_metrics!.diskTotal)}',
+              ),
+            if (selected.contains('network'))
+              MetricCard(
+                title: 'Сеть',
+                icon: '🌐',
+                value: 0,
+                unit: '',
+                subtitle: _metrics!.networkInterface,
+              ),
           ],
         );
       },
@@ -338,17 +605,27 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildDetailedCard(
-          'Память',
-          '🧠',
-          [
-            'Использовано: ${_metrics!.formatBytes(_metrics!.memUsed)}',
-            'Свободно: ${_metrics!.formatBytes(_metrics!.memFree)}',
-            'Всего: ${_metrics!.formatBytes(_metrics!.memTotal)}',
-          ],
-        ),
+        if (_metrics!.uptimeText != null)
+          _buildDetailedCard(
+            'Uptime',
+            '⏱️',
+            [
+              _metrics!.uptimeText!,
+            ],
+          ),
+        if (_metrics!.uptimeText != null) const SizedBox(height: 12),
+        if (_selectedMetrics.contains('mem'))
+          _buildDetailedCard(
+            'Память',
+            '🧠',
+            [
+              'Использовано: ${_metrics!.formatBytes(_metrics!.memUsed)}',
+              'Свободно: ${_metrics!.formatBytes(_metrics!.memFree)}',
+              'Всего: ${_metrics!.formatBytes(_metrics!.memTotal)}',
+            ],
+          ),
         const SizedBox(height: 12),
-        if (_metrics!.swapTotal > 0) ...[
+        if (_selectedMetrics.contains('swap') && _metrics!.swapTotal > 0) ...[
           _buildDetailedCard(
             'Swap',
             '🔄',
@@ -360,25 +637,57 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
           ),
           const SizedBox(height: 12),
         ],
-        _buildDetailedCard(
-          'Диск',
-          '💾',
-          [
-            'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
-            'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
-            'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
-          ],
-        ),
+        if (_selectedMetrics.contains('fs'))
+          _buildDetailedCard(
+            'Диск',
+            '💾',
+            [
+              'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
+              'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
+              'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
+            ],
+          ),
         const SizedBox(height: 12),
-        _buildDetailedCard(
-          'Сеть',
-          '🌐',
-          [
-            'Интерфейс: ${_metrics!.networkInterface}',
-            'Получено: ${_metrics!.formatBytes(_metrics!.networkRx)}',
-            'Отправлено: ${_metrics!.formatBytes(_metrics!.networkTx)}',
-          ],
-        ),
+        if (_selectedMetrics.contains('network'))
+          _buildDetailedCard(
+            'Сеть',
+            '🌐',
+            [
+              'Интерфейс: ${_metrics!.networkInterface}',
+              'Получено: ${_metrics!.formatBytes(_metrics!.networkRx)}',
+              'Отправлено: ${_metrics!.formatBytes(_metrics!.networkTx)}',
+            ],
+          ),
+        const SizedBox(height: 12),
+        if (_metrics!.systemInfo != null)
+          _buildDetailedCard(
+            'Система',
+            '🖥️',
+            [
+              if (_metrics!.systemInfo!['os_name'] != null) 'OS: ${_metrics!.systemInfo!['os_name']}',
+              if (_metrics!.systemInfo!['linux_distro'] != null) 'Distro: ${_metrics!.systemInfo!['linux_distro']}',
+              if (_metrics!.systemInfo!['os_version'] != null) 'Kernel: ${_metrics!.systemInfo!['os_version']}',
+              if (_metrics!.systemInfo!['hostname'] != null) 'Host: ${_metrics!.systemInfo!['hostname']}',
+            ],
+          ),
+        if (_metrics!.versionInfo != null) const SizedBox(height: 12),
+        if (_metrics!.versionInfo != null)
+          _buildDetailedCard(
+            'Версии',
+            '🏷️',
+            [
+              ..._metrics!.versionInfo!.entries.map((e) => '${e.key}: ${e.value}'),
+            ],
+          ),
+        if (_metrics!.processCount != null) const SizedBox(height: 12),
+        if (_metrics!.processCount != null)
+          _buildDetailedCard(
+            'Процессы',
+            '📦',
+            [
+              ..._metrics!.processCount!.entries.map((e) => '${e.key}: ${e.value}'),
+            ],
+          ),
       ],
     );
   }

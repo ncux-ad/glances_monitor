@@ -6,6 +6,12 @@ class ServerConfig {
   final String username;
   final String password;
   final String flag;
+  // Набор выбранных метрик для отображения (cpu, mem, fs, network, swap)
+  final List<String> selectedMetrics;
+  // Набор выбранных endpoint API Glances (напр. quicklook, mem, fs, cpu, network, uptime, system, processlist, sensors, ...)
+  final List<String> selectedEndpoints;
+  // Предпочитаемые сетевые интерфейсы для отображения (если пусто — авто)
+  final List<String> selectedNetworkInterfaces;
 
   const ServerConfig({
     required this.id,
@@ -15,6 +21,9 @@ class ServerConfig {
     required this.username,
     required this.password,
     required this.flag,
+    this.selectedMetrics = const ['cpu', 'mem', 'fs', 'network', 'swap'],
+    this.selectedEndpoints = const ['quicklook','mem','memswap','fs','cpu','network','uptime','system'],
+    this.selectedNetworkInterfaces = const [],
   });
 
   // Геттер для полного URL
@@ -29,6 +38,9 @@ class ServerConfig {
       'username': username,
       'password': password,
       'flag': flag,
+      'selectedMetrics': selectedMetrics,
+      'selectedEndpoints': selectedEndpoints,
+      'selectedNetworkInterfaces': selectedNetworkInterfaces,
     };
   }
 
@@ -41,6 +53,9 @@ class ServerConfig {
       username: json['username'] as String? ?? '',
       password: json['password'] as String? ?? '',
       flag: json['flag'] as String,
+      selectedMetrics: (json['selectedMetrics'] as List?)?.map((e) => e.toString()).toList() ?? const ['cpu', 'mem', 'fs', 'network', 'swap'],
+      selectedEndpoints: (json['selectedEndpoints'] as List?)?.map((e) => e.toString()).toList() ?? const ['quicklook','mem','memswap','fs','cpu','network','uptime','system'],
+      selectedNetworkInterfaces: (json['selectedNetworkInterfaces'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 
@@ -52,6 +67,9 @@ class ServerConfig {
     String? username,
     String? password,
     String? flag,
+    List<String>? selectedMetrics,
+    List<String>? selectedEndpoints,
+    List<String>? selectedNetworkInterfaces,
   }) {
     return ServerConfig(
       id: id ?? this.id,
@@ -61,6 +79,9 @@ class ServerConfig {
       username: username ?? this.username,
       password: password ?? this.password,
       flag: flag ?? this.flag,
+      selectedMetrics: selectedMetrics ?? this.selectedMetrics,
+      selectedEndpoints: selectedEndpoints ?? this.selectedEndpoints,
+      selectedNetworkInterfaces: selectedNetworkInterfaces ?? this.selectedNetworkInterfaces,
     );
   }
 
@@ -75,7 +96,7 @@ class ServerConfig {
 
   @override
   String toString() {
-    return 'ServerConfig(id: $id, name: $name, host: $host, port: $port, username: $username, flag: $flag)';
+    return 'ServerConfig(id: $id, name: $name, host: $host, port: $port, username: $username, flag: $flag, selectedMetrics: $selectedMetrics, selectedEndpoints: $selectedEndpoints, selectedNetworkInterfaces: $selectedNetworkInterfaces)';
   }
 }
 

@@ -3,6 +3,8 @@ import 'package:uuid/uuid.dart';
 import '../models/server_config.dart';
 import '../services/storage_service.dart';
 import '../services/glances_api_service.dart';
+import 'endpoint_diagnostics_screen.dart';
+import 'connection_options_screen.dart';
 
 class AddServerScreen extends StatefulWidget {
   final ServerConfig? server; // null для добавления, не null для редактирования
@@ -21,6 +23,22 @@ class _AddServerScreenState extends State<AddServerScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _flagController = TextEditingController();
+  final Map<String, bool> _metricSelections = {
+    'cpu': true,
+    'mem': true,
+    'fs': true,
+    'network': true,
+    'swap': true,
+  };
+  // Endpoint API выбор и доступность
+  final Map<String, bool> _endpointAvailable = {};
+  Set<String> _selectedEndpoints = {
+    'quicklook','mem','memswap','fs','cpu','network','uptime','system'
+  };
+  
+  // Сетевые интерфейсы
+  String _selectedNetworkInterface = 'auto';
+  List<String> _availableNetworkInterfaces = [];
 
   final _apiService = GlancesApiService();
   bool _isLoading = false;
@@ -38,6 +56,16 @@ class _AddServerScreenState extends State<AddServerScreen> {
       _usernameController.text = widget.server!.username;
       _passwordController.text = widget.server!.password;
       _flagController.text = widget.server!.flag;
+      // Инициализируем выбранные метрики
+      for (final key in _metricSelections.keys) {
+        _metricSelections[key] = widget.server!.selectedMetrics.contains(key);
+      }
+      // Инициализируем выбранные endpoint
+      _selectedEndpoints = widget.server!.selectedEndpoints.toSet();
+      // Инициализируем выбранный сетевой интерфейс
+      _selectedNetworkInterface = widget.server!.selectedNetworkInterfaces.isNotEmpty 
+          ? widget.server!.selectedNetworkInterfaces.first 
+          : 'auto';
     } else {
       _portController.text = '61208'; // значение по умолчанию
       _flagController.text = '🇩🇪'; // значение по умолчанию
@@ -142,6 +170,12 @@ class _AddServerScreenState extends State<AddServerScreen> {
             ),
             const SizedBox(height: 16),
             _buildFlagSelector(),
+          const SizedBox(height: 16),
+          _buildMetricsSelector(),
+          const SizedBox(height: 16),
+          _buildEndpointSelector(),
+          const SizedBox(height: 16),
+          _buildNetworkInterfaceSelector(),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -260,6 +294,125 @@ class _AddServerScreenState extends State<AddServerScreen> {
           }).toList(),
         ),
       ],
+    );
+  }
+
+  Widget _buildMetricsSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Выберите метрики',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: _metricSelections.keys.map((key) {
+            final label = {
+              'cpu': 'CPU',
+              'mem': 'Память',
+              'fs': 'Диск',
+              'network': 'Сеть',
+              'swap': 'Swap',
+            }[key]!
+            ;
+            return FilterChip(
+              label: Text(label),
+              selected: _metricSelections[key] == true,
+              onSelected: (val) {
+                setState(() {
+                  _metricSelections[key] = val;
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEndpointSelector() {
+    final theme = Theme.of(context);
+    final endpoints = GlancesApiService.knownEndpoints;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Endpoint API',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _scanEndpoints,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Проверить доступные'),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: _openEndpointDiagnostics,
+                  icon: const Icon(Icons.bug_report),
+                  label: const Text('Диагностика'),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: _openConnectionOptions,
+                  icon: const Icon(Icons.settings_ethernet),
+                  label: const Text('Подключение'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: endpoints.map((ep) {
+                final available = _endpointAvailable[ep];
+                Color? chipColor;
+                if (available == true) chipColor = Colors.green.withOpacity(0.12);
+                if (available == false) chipColor = Colors.red.withOpacity(0.10);
+                return FilterChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(ep),
+                      if (available == true) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                      ] else if (available == false) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                        const SizedBox(width: 2),
+                        InkWell(
+                          onTap: () => _showEndpointHelp(ep),
+                          child: Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 16),
+                        ),
+                      ]
+                    ],
+                  ),
+                  selected: _selectedEndpoints.contains(ep),
+                  selectedColor: chipColor,
+                  onSelected: (val) {
+                    setState(() {
+                      if (val) {
+                        _selectedEndpoints.add(ep);
+                      } else {
+                        _selectedEndpoints.remove(ep);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -393,6 +546,184 @@ class _AddServerScreenState extends State<AddServerScreen> {
       username: _usernameController.text.trim(),
       password: _passwordController.text.trim(),
       flag: _flagController.text.trim(),
+      selectedMetrics: _metricSelections.entries
+          .where((e) => e.value)
+          .map((e) => e.key)
+          .toList(),
+      selectedEndpoints: _selectedEndpoints.toList(),
+      selectedNetworkInterfaces: _selectedNetworkInterface == 'auto' 
+          ? [] 
+          : [_selectedNetworkInterface],
+    );
+  }
+
+  Future<void> _scanEndpoints() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _isTesting = true;
+    });
+    try {
+      final tempServer = _createServerFromForm();
+      final map = await _apiService.scanAvailableEndpoints(tempServer);
+      if (mounted) {
+        setState(() {
+          _endpointAvailable
+            ..clear()
+            ..addAll(map);
+          // Автовыбор: включать только доступные + разумный набор
+          _selectedEndpoints = _selectedEndpoints.where((ep) => map[ep] != false).toSet();
+          if (_selectedEndpoints.isEmpty) {
+            _selectedEndpoints = map.entries
+                .where((e) => e.value)
+                .map((e) => e.key)
+                .toSet();
+            _selectedEndpoints.add('quicklook');
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка сканирования endpoint: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTesting = false;
+        });
+      }
+    }
+  }
+
+  void _showEndpointHelp(String ep) {
+    final Map<String, String> tips = {
+      'sensors': 'Установите lm-sensors: sudo apt install lm-sensors && sudo sensors-detect',
+      'smart': 'Установите smartmontools: sudo apt install smartmontools',
+      'raid': 'Установите mdadm: sudo apt install mdadm',
+      'docker': 'Добавьте пользователя glances в группу docker и перезапустите docker',
+      'wifi': 'Доступно только на системах с Wi‑Fi адаптером',
+      'processlist': 'Ограничьте объем: запрашивайте top N процессов для производительности',
+    };
+    final text = tips[ep] ?? 'Плагин может быть недоступен на этой системе или отключен.';
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Как включить "$ep"', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(text),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNetworkInterfaceSelector() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Сетевой интерфейс',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _scanNetworkInterfaces,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Обновить'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedNetworkInterface,
+              decoration: const InputDecoration(
+                labelText: 'Выберите интерфейс',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: 'auto',
+                  child: Text('Автоматически'),
+                ),
+                ..._availableNetworkInterfaces.map((iface) => DropdownMenuItem(
+                  value: iface,
+                  child: Text(iface),
+                )),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedNetworkInterface = value;
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _scanNetworkInterfaces() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _isTesting = true;
+    });
+    try {
+      final tempServer = _createServerFromForm();
+      final interfaces = await _apiService.fetchNetworkInterfaces(tempServer);
+      if (mounted) {
+        setState(() {
+          _availableNetworkInterfaces = interfaces;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка получения интерфейсов: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTesting = false;
+        });
+      }
+    }
+  }
+
+  void _openEndpointDiagnostics() {
+    if (!_formKey.currentState!.validate()) return;
+    
+    final tempServer = _createServerFromForm();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EndpointDiagnosticsScreen(server: tempServer),
+      ),
+    );
+  }
+
+  void _openConnectionOptions() {
+    if (!_formKey.currentState!.validate()) return;
+    
+    final tempServer = _createServerFromForm();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ConnectionOptionsScreen(server: tempServer),
+      ),
     );
   }
 }

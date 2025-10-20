@@ -6,6 +6,7 @@ import '../services/glances_api_service.dart';
 import '../widgets/server_list_tile.dart';
 import 'add_server_screen.dart';
 import 'server_detail_screen.dart';
+import 'about_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -169,6 +170,11 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: theme.colorScheme.inversePrimary,
         actions: [
           IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: _showAbout,
+            tooltip: 'О программе',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _onRefresh,
           ),
@@ -279,6 +285,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAbout() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const AboutScreen(),
       ),
     );
   }

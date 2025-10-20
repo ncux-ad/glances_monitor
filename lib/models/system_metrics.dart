@@ -23,6 +23,20 @@ class SystemMetrics {
   final bool isOnline;
   final String? errorMessage;
 
+  // Дополнительные (опциональные) данные из других endpoint
+  final String? uptimeText; // из /uptime, строка наподобие "1 day, 02:03:04"
+  final Map<String, dynamic>? systemInfo; // из /system
+  final Map<String, dynamic>? versionInfo; // из /version
+  final Map<String, dynamic>? processCount; // из /processcount
+  final List<Map<String, dynamic>>? processList; // из /processlist
+  final List<Map<String, dynamic>>? sensors; // из /sensors
+  final List<Map<String, dynamic>>? smart; // из /smart
+  final List<Map<String, dynamic>>? raid; // из /raid
+  final List<Map<String, dynamic>>? docker; // из /docker
+  final List<Map<String, dynamic>>? wifi; // из /wifi
+  final Map<String, dynamic>? load; // из /load
+  final Map<String, dynamic>? alert; // из /alert
+
   const SystemMetrics({
     required this.cpuPercent,
     required this.memPercent,
@@ -45,6 +59,18 @@ class SystemMetrics {
     required this.networkTx,
     required this.isOnline,
     this.errorMessage,
+    this.uptimeText,
+    this.systemInfo,
+    this.versionInfo,
+    this.processCount,
+    this.processList,
+    this.sensors,
+    this.smart,
+    this.raid,
+    this.docker,
+    this.wifi,
+    this.load,
+    this.alert,
   });
 
   factory SystemMetrics.offline({String? errorMessage}) {
@@ -70,6 +96,18 @@ class SystemMetrics {
       networkTx: 0,
       isOnline: false,
       errorMessage: errorMessage,
+      uptimeText: null,
+      systemInfo: null,
+      versionInfo: null,
+      processCount: null,
+      processList: null,
+      sensors: null,
+      smart: null,
+      raid: null,
+      docker: null,
+      wifi: null,
+      load: null,
+      alert: null,
     );
   }
 
@@ -81,6 +119,18 @@ class SystemMetrics {
     required Map<String, dynamic> cpu,
     required List<dynamic> network,
     required int apiVersion,
+    String? uptimeText,
+    Map<String, dynamic>? systemInfo,
+    Map<String, dynamic>? versionInfo,
+    Map<String, dynamic>? processCount,
+    List<Map<String, dynamic>>? processList,
+    List<Map<String, dynamic>>? sensors,
+    List<Map<String, dynamic>>? smart,
+    List<Map<String, dynamic>>? raid,
+    List<Map<String, dynamic>>? docker,
+    List<Map<String, dynamic>>? wifi,
+    Map<String, dynamic>? load,
+    Map<String, dynamic>? alert,
   }) {
     // CPU данные
     final cpuPercent = (quicklook['cpu'] as num?)?.toDouble() ?? 0.0;
@@ -142,6 +192,18 @@ class SystemMetrics {
       networkRx: networkRx,
       networkTx: networkTx,
       isOnline: true,
+      uptimeText: uptimeText,
+      systemInfo: systemInfo,
+      versionInfo: versionInfo,
+      processCount: processCount,
+      processList: processList,
+      sensors: sensors,
+      smart: smart,
+      raid: raid,
+      docker: docker,
+      wifi: wifi,
+      load: load,
+      alert: alert,
     );
   }
 
