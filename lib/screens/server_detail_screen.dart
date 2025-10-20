@@ -22,25 +22,16 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   bool _isLoading = false;
   Timer? _refreshTimer;
   bool _autoRefresh = true;
-  final Map<String, String> _metricLabels = const {
-    'cpu': 'CPU',
-    'mem': 'Память',
-    'fs': 'Диск',
-    'network': 'Сеть',
-    'swap': 'Swap',
-  };
   late Set<String> _selectedMetrics;
   late Set<String> _selectedEndpoints;
   String _selectedNetworkInterface = 'auto';
   List<String> _availableNetworkInterfaces = [];
   String _selectedDetailTab = 'system';
   late TabController _tabController;
+  bool _showAdvancedOptions = false;
+  Map<String, bool> _endpointsAvailability = {};
+  late ScrollController _scrollController;
 
-  final Map<String, Set<String>> _presets = const {
-    'Минимум': {'cpu', 'mem'},
-    'Сеть': {'cpu', 'network', 'mem'},
-    'Полный': {'cpu', 'mem', 'fs', 'network', 'swap'},
-  };
 
   @override
   void initState() {
@@ -51,6 +42,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         ? widget.server.selectedNetworkInterfaces.first 
         : 'auto';
     _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
+    _scrollController = ScrollController();
     _loadMetrics();
     _startAutoRefresh();
   }
@@ -59,6 +51,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   void dispose() {
     _refreshTimer?.cancel();
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -146,6 +139,20 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   }
 
   Future<void> _onToggleEndpoint(String ep, bool selected) async {
+    // Проверяем доступность endpoint перед включением
+    if (selected && _endpointsAvailability.containsKey(ep) && !_endpointsAvailability[ep]!) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Endpoint "$ep" недоступен на этом сервере'),
+          action: SnackBarAction(
+            label: 'Обновить статус',
+            onPressed: _checkEndpointsAvailability,
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       if (selected) {
         _selectedEndpoints.add(ep);
@@ -157,6 +164,32 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       widget.server.copyWith(selectedEndpoints: _selectedEndpoints.toList()),
     );
     await _loadMetrics();
+  }
+
+  void _handleMenuAction(String action) async {
+    switch (action) {
+      case 'expert_mode':
+        setState(() {
+          _showAdvancedOptions = !_showAdvancedOptions;
+        });
+        
+        // При включении экспертного режима проверяем доступность endpoints
+        if (_showAdvancedOptions && _endpointsAvailability.isEmpty) {
+          await _checkEndpointsAvailability();
+        }
+        break;
+    }
+  }
+
+  Future<void> _checkEndpointsAvailability() async {
+    try {
+      final availability = await _apiService.scanAvailableEndpoints(widget.server);
+      setState(() {
+        _endpointsAvailability = availability;
+      });
+    } catch (e) {
+      // Игнорируем ошибки проверки endpoints
+    }
   }
 
   Future<void> _onNetworkInterfaceChanged(String? newInterface) async {
@@ -222,6 +255,22 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
             },
             tooltip: 'Диагностика сети',
           ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: _handleMenuAction,
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'expert_mode',
+                child: Row(
+                  children: [
+                    Icon(_showAdvancedOptions ? Icons.visibility : Icons.visibility_off),
+                    const SizedBox(width: 8),
+                    Text(_showAdvancedOptions ? 'Обычный режим' : 'Экспертный режим'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: _buildBody(),
@@ -248,10 +297,11 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
           children: [
             _buildServerInfo(),
             const SizedBox(height: 12),
-            _buildMetricSelector(),
             const SizedBox(height: 12),
-            _buildEndpointSelector(),
-            const SizedBox(height: 12),
+            if (_showAdvancedOptions) ...[
+              _buildEndpointSelector(),
+              const SizedBox(height: 12),
+            ],
             _buildNetworkInterfaceSelector(),
             const SizedBox(height: 16),
             _buildMetricsGrid(),
@@ -402,52 +452,6 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     );
   }
 
-  Widget _buildMetricSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Выбор метрик',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: _presets.entries.map((e) {
-                return ActionChip(
-                  label: Text(e.key),
-                  onPressed: () async {
-                    setState(() {
-                      _selectedMetrics = Set.of(e.value);
-                    });
-                    await StorageService.updateServer(
-                      widget.server.copyWith(selectedMetrics: _selectedMetrics.toList()),
-                    );
-                    await _loadMetrics();
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: _metricLabels.keys.map((key) {
-                return FilterChip(
-                  label: Text(_metricLabels[key]!),
-                  selected: _selectedMetrics.contains(key),
-                  onSelected: (val) => _onToggleMetric(key, val),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildEndpointSelector() {
     final labels = <String, String>{
@@ -479,10 +483,30 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
               spacing: 8,
               runSpacing: 4,
               children: labels.keys.map((ep) {
-                return FilterChip(
-                  label: Text(labels[ep]!),
-                  selected: _selectedEndpoints.contains(ep),
-                  onSelected: (val) => _onToggleEndpoint(ep, val),
+                final isAvailable = _endpointsAvailability[ep] ?? true; // По умолчанию считаем доступным
+                final isSelected = _selectedEndpoints.contains(ep);
+                
+                return Tooltip(
+                  message: isAvailable 
+                    ? 'Endpoint доступен' 
+                    : 'Endpoint недоступен на этом сервере',
+                  child: FilterChip(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isAvailable ? Icons.check_circle : Icons.cancel,
+                          size: 16,
+                          color: isAvailable ? Colors.green : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(labels[ep]!),
+                      ],
+                    ),
+                    selected: isSelected,
+                    onSelected: isAvailable ? (val) => _onToggleEndpoint(ep, val) : null,
+                    disabledColor: Colors.grey.withValues(alpha: 0.3),
+                  ),
                 );
               }).toList(),
             ),
@@ -627,6 +651,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       ),
       child: TabBar(
         controller: _tabController,
+        tabAlignment: TabAlignment.fill,
         onTap: (index) {
           setState(() {
             switch (index) {
@@ -644,6 +669,10 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
                 break;
             }
           });
+          // Сбрасываем scroll position при переключении вкладок
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(0);
+          }
         },
         tabs: [
           Tab(
@@ -703,18 +732,29 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
       }
     });
     
+    Widget content;
     switch (_selectedDetailTab) {
       case 'system':
-        return _buildSystemTab();
+        content = _buildSystemTab();
+        break;
       case 'network':
-        return _buildNetworkTab();
+        content = _buildNetworkTab();
+        break;
       case 'storage':
-        return _buildStorageTab();
+        content = _buildStorageTab();
+        break;
       case 'performance':
-        return _buildPerformanceTab();
+        content = _buildPerformanceTab();
+        break;
       default:
-        return _buildSystemTab();
+        content = _buildSystemTab();
     }
+    
+    return SingleChildScrollView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: content,
+    );
   }
 
   int _getTabIndex(String tab) {
@@ -735,6 +775,33 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   Widget _buildSystemTab() {
     return Column(
       children: [
+        // Переключатель для системной информации
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Icon(Icons.computer, size: 20),
+                const SizedBox(width: 8),
+                const Text('Показывать системную информацию'),
+                const Spacer(),
+                Switch(
+                  value: _selectedMetrics.contains('system') || _selectedMetrics.contains('mem') || _selectedMetrics.contains('swap'),
+                  onChanged: (value) {
+                    if (value) {
+                      _onToggleMetric('mem', true);
+                      _onToggleMetric('swap', true);
+                    } else {
+                      _onToggleMetric('mem', false);
+                      _onToggleMetric('swap', false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         if (_metrics!.uptimeText != null) ...[
           _buildDetailedCard(
             'Uptime',
@@ -958,23 +1025,69 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   }
 
   Widget _buildNetworkTab() {
-    if (!_selectedMetrics.contains('network')) {
-      return _buildEmptyTab('Сетевые метрики не выбраны');
-    }
-    return _buildNetworkDetailedCard();
+    return Column(
+      children: [
+        // Переключатель для сетевой информации
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Icon(Icons.network_check, size: 20),
+                const SizedBox(width: 8),
+                const Text('Показывать сетевую информацию'),
+                const Spacer(),
+                Switch(
+                  value: _selectedMetrics.contains('network'),
+                  onChanged: (value) => _onToggleMetric('network', value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_selectedMetrics.contains('network'))
+          _buildNetworkDetailedCard()
+        else
+          _buildEmptyTab('Сетевые метрики не выбраны'),
+      ],
+    );
   }
 
   Widget _buildStorageTab() {
-    if (!_selectedMetrics.contains('fs')) {
-      return _buildEmptyTab('Метрики диска не выбраны');
-    }
-    return _buildDetailedCard(
-      'Диск',
-      '💾',
-      [
-        'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
-        'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
-        'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
+    return Column(
+      children: [
+        // Переключатель для информации о хранилище
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Icon(Icons.storage, size: 20),
+                const SizedBox(width: 8),
+                const Text('Показывать информацию о хранилище'),
+                const Spacer(),
+                Switch(
+                  value: _selectedMetrics.contains('fs'),
+                  onChanged: (value) => _onToggleMetric('fs', value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_selectedMetrics.contains('fs'))
+          _buildDetailedCard(
+            'Диск',
+            '💾',
+            [
+              'Использовано: ${_metrics!.formatBytes(_metrics!.diskUsed)}',
+              'Свободно: ${_metrics!.formatBytes(_metrics!.diskFree)}',
+              'Всего: ${_metrics!.formatBytes(_metrics!.diskTotal)}',
+            ],
+          )
+        else
+          _buildEmptyTab('Метрики диска не выбраны'),
       ],
     );
   }
@@ -982,6 +1095,25 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   Widget _buildPerformanceTab() {
     return Column(
       children: [
+        // Переключатель для производительности
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Icon(Icons.speed, size: 20),
+                const SizedBox(width: 8),
+                const Text('Показывать информацию о производительности'),
+                const Spacer(),
+                Switch(
+                  value: _selectedMetrics.contains('cpu'),
+                  onChanged: (value) => _onToggleMetric('cpu', value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         if (_selectedMetrics.contains('cpu'))
           _buildDetailedCard(
             'CPU',
@@ -992,18 +1124,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
               'Ядра: ${_metrics!.cpuCores}',
               'Загрузка: ${_metrics!.cpuPercent.toStringAsFixed(1)}%',
             ],
-          ),
-        const SizedBox(height: 12),
-        if (_selectedMetrics.contains('mem'))
-          _buildDetailedCard(
-            'Производительность памяти',
-            '🧠',
-            [
-              'Использование: ${_metrics!.memPercent.toStringAsFixed(1)}%',
-              'Использовано: ${_metrics!.formatBytes(_metrics!.memUsed)}',
-              'Свободно: ${_metrics!.formatBytes(_metrics!.memFree)}',
-            ],
-          ),
+          )
+        else
+          _buildEmptyTab('Метрики CPU не выбраны'),
       ],
     );
   }
