@@ -187,7 +187,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
             const Text('Выберите сетевой интерфейс для мониторинга:'),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedNetworkInterface,
+              value: _availableNetworkInterfaces.contains(_selectedNetworkInterface) || _selectedNetworkInterface == 'auto' 
+                  ? _selectedNetworkInterface 
+                  : 'auto',
               decoration: const InputDecoration(
                 labelText: 'Сетевой интерфейс',
                 border: OutlineInputBorder(),
@@ -197,7 +199,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
                   value: 'auto',
                   child: Text('Автоматически'),
                 ),
-                ..._availableNetworkInterfaces.map((interface) => DropdownMenuItem(
+                ..._availableNetworkInterfaces.toSet().map((interface) => DropdownMenuItem(
                   value: interface,
                   child: Text(interface),
                 )),
