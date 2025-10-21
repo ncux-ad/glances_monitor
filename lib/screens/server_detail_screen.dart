@@ -856,33 +856,113 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Детальная информация',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_hasAdditionalData()) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Дополнительные данные',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.green.shade700,
-                        fontWeight: FontWeight.w500,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 400;
+                if (isNarrow) {
+                  // Для узких экранов - вертикальный layout
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Детальная информация',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ],
+                      if (_hasAdditionalData()) ...[
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: _showAdditionalDataInfo,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.green.withValues(alpha: 0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Дополнительные данные',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 14,
+                                  color: Colors.green.shade700,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                } else {
+                  // Для широких экранов - горизонтальный layout
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Детальная информация',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (_hasAdditionalData()) ...[
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: _showAdditionalDataInfo,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.green.withValues(alpha: 0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Дополнительные данные',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 14,
+                                  color: Colors.green.shade700,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                }
+              },
             ),
             if (_hasAdditionalData()) ...[
               const SizedBox(height: 4),
@@ -892,6 +972,8 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
                   color: Colors.grey.shade600,
                   fontStyle: FontStyle.italic,
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
             ],
           ],
@@ -1332,6 +1414,56 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAdditionalDataInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Дополнительные данные'),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Дополнительные данные включают расширенную информацию о системе:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 12),
+              Text('📊 Процессы и их количество'),
+              Text('🔧 Версии системы и компонентов'),
+              Text('🌡️ Сенсоры (температура, вентиляторы)'),
+              Text('🐳 Docker контейнеры'),
+              Text('🌐 Сетевые соединения'),
+              Text('💾 Дисковые операции'),
+              Text('📁 Папки и их размеры'),
+              Text('🔌 Порты и подключения'),
+              SizedBox(height: 12),
+              Text(
+                'Как получить эти данные:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 8),
+              Text('1. Убедитесь что Glances запущен с расширенными опциями'),
+              Text('2. Используйте команду: glances -w --port 61208 --enable-plugin sensors,smart,docker'),
+              Text('3. Или настройте дополнительные endpoints в настройках сервера'),
+              SizedBox(height: 12),
+              Text(
+                'Эти данные помогают получить полную картину состояния сервера!',
+                style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Понятно'),
           ),
         ],
       ),

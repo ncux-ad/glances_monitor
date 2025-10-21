@@ -73,20 +73,22 @@ class ConnectionOptions {
     final hasAuth = server.username.isNotEmpty && server.password.isNotEmpty;
     final isLocalhost = server.host == 'localhost' || server.host == '127.0.0.1';
     
-    // Рекомендации на основе конфигурации
+    // Рекомендации на основе конфигурации (только действительно рекомендуемые)
     if (isLocalhost) {
       recommendations.add(getConnectionType('direct'));
     } else if (hasAuth) {
       recommendations.add(getConnectionType('nginx_proxy'));
+      // Добавляем SSH туннель как альтернативу для безопасности
+      recommendations.add(getConnectionType('ssh_tunnel'));
     } else {
       recommendations.add(getConnectionType('ssh_tunnel'));
+      // Добавляем прямое подключение как альтернативу для простоты
+      recommendations.add(getConnectionType('direct'));
     }
     
-    // Добавляем альтернативные варианты
-    for (final type in connectionTypes) {
-      if (!recommendations.any((rec) => rec['id'] == type['id'])) {
-        recommendations.add(type);
-      }
+    // Добавляем VPN как общую рекомендацию для продакшена
+    if (!isLocalhost) {
+      recommendations.add(getConnectionType('vpn'));
     }
     
     return recommendations;
