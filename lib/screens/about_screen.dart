@@ -222,7 +222,11 @@ class AboutScreen extends StatelessWidget {
             ),
             if (content.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(content),
+              Text(
+                content,
+                softWrap: true,
+                overflow: TextOverflow.visible,
+              ),
             ],
             if (children != null) ...[
               const SizedBox(height: 12),

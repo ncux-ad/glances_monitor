@@ -92,7 +92,10 @@ class _EndpointDiagnosticsScreenState extends State<EndpointDiagnosticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Диагностика Endpoint - ${widget.server.name}'),
+        title: Text(
+          'Диагностика Endpoint - ${widget.server.name}',
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.share),

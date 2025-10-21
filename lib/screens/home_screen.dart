@@ -183,6 +183,12 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'health_check':
         _quickHealthCheck();
         break;
+      case 'export_settings':
+        _exportSettings();
+        break;
+      case 'import_settings':
+        _importSettings();
+        break;
       case 'about':
         _showAbout();
         break;
@@ -293,6 +299,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(Icons.favorite, color: Colors.red, size: 20),
                     SizedBox(width: 8),
                     Text('Проверка статуса'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'export_settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_download, size: 20),
+                    SizedBox(width: 8),
+                    Text('Экспорт настроек'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'import_settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_upload, size: 20),
+                    SizedBox(width: 8),
+                    Text('Импорт настроек'),
                   ],
                 ),
               ),
@@ -428,6 +454,111 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) => const AboutScreen(),
       ),
     );
+  }
+
+  void _exportSettings() async {
+    try {
+      final success = await StorageService.copyToClipboard();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success 
+              ? 'Настройки скопированы в буфер обмена' 
+              : 'Ошибка экспорта настроек'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка экспорта: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _importSettings() async {
+    // Простое решение - показать диалог с инструкциями
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Импорт настроек'),
+          content: const Text(
+            'Для импорта настроек:\n\n'
+            '1. Скопируйте JSON с настройками в буфер обмена\n'
+            '2. Нажмите "Вставить" в следующем диалоге\n\n'
+            'Настройки будут заменены на импортированные.'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showImportDialog();
+              },
+              child: const Text('Продолжить'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _showImportDialog() async {
+    final controller = TextEditingController();
+    
+    if (mounted) {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Импорт настроек'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'Вставьте JSON с настройками серверов',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 10,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Импорт'),
+            ),
+          ],
+        ),
+      );
+
+      if (result != null && result.isNotEmpty) {
+        final success = await StorageService.importServers(result);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(success 
+                ? 'Настройки успешно импортированы' 
+                : 'Ошибка импорта настроек'),
+              backgroundColor: success ? Colors.green : Colors.red,
+            ),
+          );
+          
+          if (success) {
+            _loadServers(); // Перезагружаем список серверов
+          }
+        }
+      }
+    }
   }
 }
 

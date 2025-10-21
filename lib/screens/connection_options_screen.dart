@@ -67,8 +67,15 @@ class _ConnectionOptionsScreenState extends State<ConnectionOptionsScreen> {
             const SizedBox(height: 12),
             Text('Хост: ${widget.server.host}'),
             Text('Порт: ${widget.server.port}'),
-            Text('Аутентификация: ${widget.server.username.isNotEmpty ? "Настроена" : "Не настроена"}'),
-            if (widget.server.username.isNotEmpty) Text('Пользователь: ${widget.server.username}'),
+            Text(
+              'Аутентификация: ${widget.server.username.isNotEmpty ? "Настроена" : "Не настроена"}',
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (widget.server.username.isNotEmpty) 
+              Text(
+                'Пользователь: ${widget.server.username}',
+                overflow: TextOverflow.ellipsis,
+              ),
           ],
         ),
       ),
@@ -85,6 +92,7 @@ class _ConnectionOptionsScreenState extends State<ConnectionOptionsScreen> {
             const Text(
               'Рекомендуемые варианты',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 12),
             ..._recommendedOptions.map((option) => _buildOptionTile(option, isRecommended: true)),
@@ -104,6 +112,7 @@ class _ConnectionOptionsScreenState extends State<ConnectionOptionsScreen> {
             const Text(
               'Все варианты подключения',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 12),
             ...ConnectionOptions.connectionTypes.map((option) => _buildOptionTile(option)),
@@ -126,24 +135,33 @@ class _ConnectionOptionsScreenState extends State<ConnectionOptionsScreen> {
         ),
         title: Row(
           children: [
-            Text(option['name']),
+            Expanded(
+              child: Text(
+                option['name'],
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             if (isRecommended) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.green,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
                   'Рекомендуется',
-                  style: TextStyle(color: Colors.white, fontSize: 12),
+                  style: TextStyle(color: Colors.white, fontSize: 11),
                 ),
               ),
             ],
           ],
         ),
-        subtitle: Text(option['description']),
+        subtitle: Text(
+          option['description'],
+          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+        ),
         trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
         onTap: () => setState(() => _selectedOption = option['id']),
       ),

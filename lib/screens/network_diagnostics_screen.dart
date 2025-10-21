@@ -64,7 +64,10 @@ class _NetworkDiagnosticsScreenState extends State<NetworkDiagnosticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Диагностика сети - ${widget.server.name}'),
+        title: Text(
+          'Диагностика сети - ${widget.server.name}',
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.share),

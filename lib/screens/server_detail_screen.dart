@@ -302,7 +302,10 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.server.flag} ${widget.server.name}'),
+        title: Text(
+          '${widget.server.flag} ${widget.server.name}',
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           // Основные кнопки - только самые важные
           IconButton(
@@ -1160,9 +1163,9 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
           '📈 Gauge RX: ${_formatBytes(gaugeRx)}',
           '📈 Gauge TX: ${_formatBytes(gaugeTx)}',
         ]);
-        networkDetails.add('ℹ️ API v4: cumulative ≠ gauge (разные значения)');
+        networkDetails.add('ℹ️ API v4: cumulative ≠ gauge');
       } else {
-        networkDetails.add('ℹ️ API v4: cumulative = gauge (одинаковые значения)');
+        networkDetails.add('ℹ️ API v4: cumulative = gauge');
       }
     } else {
       // Неизвестная версия - показываем как есть
@@ -1190,7 +1193,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> with TickerProv
     
     // Добавляем информацию о типе данных
     if (hasGaugeData || hasRateData) {
-      networkDetails.add('🚀 FastAPI: расширенные данные доступны');
+      networkDetails.add('🚀 FastAPI: расширенные данные');
     } else if (isApiV3) {
       networkDetails.add('📡 API v3: стандартные данные');
     } else if (isApiV4) {

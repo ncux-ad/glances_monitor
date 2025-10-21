@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import '../models/server_config.dart';
 
 class StorageService {
@@ -81,6 +82,54 @@ class StorageService {
     } catch (e) {
       print('Ошибка получения сервера: $e');
       return null;
+    }
+  }
+
+  // Экспорт настроек серверов в JSON
+  static Future<String> exportServers() async {
+    try {
+      final servers = await loadServers();
+      final exportData = {
+        'version': '1.0',
+        'timestamp': DateTime.now().toIso8601String(),
+        'servers': servers.map((s) => s.toJson()).toList(),
+      };
+      return jsonEncode(exportData);
+    } catch (e) {
+      print('Ошибка экспорта серверов: $e');
+      return '';
+    }
+  }
+
+  // Импорт настроек серверов из JSON
+  static Future<bool> importServers(String jsonData) async {
+    try {
+      final data = jsonDecode(jsonData);
+      if (data['servers'] is List) {
+        final servers = (data['servers'] as List)
+            .map((json) => ServerConfig.fromJson(json))
+            .toList();
+        return await saveServers(servers);
+      }
+      return false;
+    } catch (e) {
+      print('Ошибка импорта серверов: $e');
+      return false;
+    }
+  }
+
+  // Копирование настроек в буфер обмена
+  static Future<bool> copyToClipboard() async {
+    try {
+      final exportData = await exportServers();
+      if (exportData.isNotEmpty) {
+        await Clipboard.setData(ClipboardData(text: exportData));
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Ошибка копирования в буфер обмена: $e');
+      return false;
     }
   }
 }

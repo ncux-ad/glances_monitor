@@ -90,7 +90,10 @@ class _AddServerScreenState extends State<AddServerScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Редактировать сервер' : 'Добавить сервер'),
+        title: Text(
+          isEditing ? 'Редактировать сервер' : 'Добавить сервер',
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           if (isEditing)
             IconButton(
@@ -350,35 +353,70 @@ class _AddServerScreenState extends State<AddServerScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
-                // Простая раскладка кнопок
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    TextButton.icon(
-                      onPressed: _scanEndpoints,
-                      icon: const Icon(Icons.search),
-                      label: const Text('Проверить'),
-                    ),
-                    TextButton.icon(
-                      onPressed: _openEndpointDiagnostics,
-                      icon: const Icon(Icons.bug_report),
-                      label: const Text('Диагностика'),
-                    ),
-                    TextButton.icon(
-                      onPressed: _openConnectionOptions,
-                      icon: const Icon(Icons.settings_ethernet),
-                      label: const Text('Подключение'),
-                    ),
-                  ],
+                // Адаптивная раскладка кнопок
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 400;
+                    if (isNarrow) {
+                      // В узком экране - вертикальная раскладка
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextButton.icon(
+                            onPressed: _scanEndpoints,
+                            icon: const Icon(Icons.search, size: 18),
+                            label: const Text('Проверить endpoints'),
+                          ),
+                          const SizedBox(height: 4),
+                          TextButton.icon(
+                            onPressed: _openEndpointDiagnostics,
+                            icon: const Icon(Icons.bug_report, size: 18),
+                            label: const Text('Диагностика'),
+                          ),
+                          const SizedBox(height: 4),
+                          TextButton.icon(
+                            onPressed: _openConnectionOptions,
+                            icon: const Icon(Icons.settings_ethernet, size: 18),
+                            label: const Text('Варианты подключения'),
+                          ),
+                        ],
+                      );
+                    } else {
+                      // В широком экране - горизонтальная раскладка
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          TextButton.icon(
+                            onPressed: _scanEndpoints,
+                            icon: const Icon(Icons.search, size: 18),
+                            label: const Text('Проверить'),
+                          ),
+                          TextButton.icon(
+                            onPressed: _openEndpointDiagnostics,
+                            icon: const Icon(Icons.bug_report, size: 18),
+                            label: const Text('Диагностика'),
+                          ),
+                          TextButton.icon(
+                            onPressed: _openConnectionOptions,
+                            icon: const Icon(Icons.settings_ethernet, size: 18),
+                            label: const Text('Подключение'),
+                          ),
+                        ],
+                      );
+                    }
+                  },
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: endpoints.map((ep) {
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 400;
+                return Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: endpoints.map((ep) {
                 final available = _endpointAvailable[ep];
                 Color? chipColor;
                 if (available == true) chipColor = Colors.green.withValues(alpha: 0.12);
@@ -387,17 +425,17 @@ class _AddServerScreenState extends State<AddServerScreen> {
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(ep),
+                      Text(ep, style: TextStyle(fontSize: isNarrow ? 12 : 14)),
                       if (available == true) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        Icon(Icons.check_circle, color: Colors.green, size: isNarrow ? 14 : 16),
                       ] else if (available == false) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                        Icon(Icons.error_outline, color: Colors.red, size: isNarrow ? 14 : 16),
                         const SizedBox(width: 2),
                         InkWell(
                           onTap: () => _showEndpointHelp(ep),
-                          child: Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 16),
+                          child: Icon(Icons.info_outline, color: theme.colorScheme.primary, size: isNarrow ? 14 : 16),
                         ),
                       ]
                     ],
@@ -415,6 +453,8 @@ class _AddServerScreenState extends State<AddServerScreen> {
                   },
                 );
               }).toList(),
+                );
+              },
             ),
           ],
         ),
