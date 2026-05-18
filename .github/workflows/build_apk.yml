@@ -43,8 +43,9 @@ jobs:
         if: ${{ secrets.TG_BOT_TOKEN != '' }}
         run: |
           VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}')
+          CAPTION="📱 Glances Monitor v${VERSION} — сборка #${{ github.run_number }}&#10;Коммит: ${{ github.event.head_commit.message }}"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendDocument" \
             -F "chat_id=${{ secrets.TG_CHAT_ID }}" \
             -F "document=@build/app/outputs/flutter-apk/app-release.apk" \
-            -F "caption=📱 Glances Monitor v${VERSION} — сборка #${{ github.run_number }}
-          Коммит: ${{ github.event.head_commit.message }}"
+            -F "caption=${CAPTION}" \
+            -F "parse_mode=HTML"
