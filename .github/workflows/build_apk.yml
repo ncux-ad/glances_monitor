@@ -22,7 +22,6 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32.0'
           channel: stable
           cache: true
 
@@ -40,12 +39,12 @@ jobs:
           retention-days: 7
 
       - name: Send APK via Telegram
-        if: ${{ secrets.TG_BOT_TOKEN != '' }}
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: |
           VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}')
-          CAPTION="📱 Glances Monitor v${VERSION} — сборка #${{ github.run_number }}&#10;Коммит: ${{ github.event.head_commit.message }}"
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendDocument" \
-            -F "chat_id=${{ secrets.TG_CHAT_ID }}" \
+          curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument" \
+            -F "chat_id=${TG_CHAT_ID}" \
             -F "document=@build/app/outputs/flutter-apk/app-release.apk" \
-            -F "caption=${CAPTION}" \
-            -F "parse_mode=HTML"
+            -F "caption=Glances Monitor v${VERSION} — сборка #${{ github.run_number }}"
