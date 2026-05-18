@@ -36,6 +36,8 @@ class _AddServerScreenState extends State<AddServerScreen> {
     'quicklook','mem','memswap','fs','cpu','network','uptime','system'
   };
   
+  bool _useHttps = false;
+
   // Сетевые интерфейсы
   String _selectedNetworkInterface = 'auto';
   List<String> _availableNetworkInterfaces = [];
@@ -63,9 +65,10 @@ class _AddServerScreenState extends State<AddServerScreen> {
       // Инициализируем выбранные endpoint
       _selectedEndpoints = widget.server!.selectedEndpoints.toSet();
       // Инициализируем выбранный сетевой интерфейс
-      _selectedNetworkInterface = widget.server!.selectedNetworkInterfaces.isNotEmpty 
-          ? widget.server!.selectedNetworkInterfaces.first 
+      _selectedNetworkInterface = widget.server!.selectedNetworkInterfaces.isNotEmpty
+          ? widget.server!.selectedNetworkInterfaces.first
           : 'auto';
+      _useHttps = widget.server!.useHttps;
     } else {
       _portController.text = '61208'; // значение по умолчанию
       _flagController.text = '🇩🇪'; // значение по умолчанию
@@ -171,7 +174,15 @@ class _AddServerScreenState extends State<AddServerScreen> {
               hint: 'Пароль для доступа к Glances',
               obscureText: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Использовать HTTPS'),
+              subtitle: const Text('Включите, если сервер работает через TLS'),
+              value: _useHttps,
+              onChanged: (val) => setState(() => _useHttps = val),
+            ),
+            const SizedBox(height: 8),
             _buildFlagSelector(),
           const SizedBox(height: 16),
           _buildMetricsSelector(),
@@ -586,9 +597,10 @@ class _AddServerScreenState extends State<AddServerScreen> {
           .map((e) => e.key)
           .toList(),
       selectedEndpoints: _selectedEndpoints.toList(),
-      selectedNetworkInterfaces: _selectedNetworkInterface == 'auto' 
-          ? [] 
+      selectedNetworkInterfaces: _selectedNetworkInterface == 'auto'
+          ? []
           : [_selectedNetworkInterface],
+      useHttps: _useHttps,
     );
   }
 

@@ -12,6 +12,7 @@ class ServerConfig {
   final List<String> selectedEndpoints;
   // Предпочитаемые сетевые интерфейсы для отображения (если пусто — авто)
   final List<String> selectedNetworkInterfaces;
+  final bool useHttps;
 
   const ServerConfig({
     required this.id,
@@ -24,10 +25,11 @@ class ServerConfig {
     this.selectedMetrics = const ['cpu', 'mem', 'fs', 'network', 'swap'],
     this.selectedEndpoints = const ['quicklook','mem','memswap','fs','cpu','network','uptime','system'],
     this.selectedNetworkInterfaces = const [],
+    this.useHttps = false,
   });
 
   // Геттер для полного URL
-  String get url => 'http://$host:$port';
+  String get url => '${useHttps ? 'https' : 'http'}://$host:$port';
 
   Map<String, dynamic> toJson() {
     return {
@@ -41,6 +43,7 @@ class ServerConfig {
       'selectedMetrics': selectedMetrics,
       'selectedEndpoints': selectedEndpoints,
       'selectedNetworkInterfaces': selectedNetworkInterfaces,
+      'useHttps': useHttps,
     };
   }
 
@@ -56,6 +59,7 @@ class ServerConfig {
       selectedMetrics: (json['selectedMetrics'] as List?)?.map((e) => e.toString()).toList() ?? const ['cpu', 'mem', 'fs', 'network', 'swap'],
       selectedEndpoints: (json['selectedEndpoints'] as List?)?.map((e) => e.toString()).toList() ?? const ['quicklook','mem','memswap','fs','cpu','network','uptime','system'],
       selectedNetworkInterfaces: (json['selectedNetworkInterfaces'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      useHttps: json['useHttps'] as bool? ?? false,
     );
   }
 
@@ -70,6 +74,7 @@ class ServerConfig {
     List<String>? selectedMetrics,
     List<String>? selectedEndpoints,
     List<String>? selectedNetworkInterfaces,
+    bool? useHttps,
   }) {
     return ServerConfig(
       id: id ?? this.id,
@@ -82,6 +87,7 @@ class ServerConfig {
       selectedMetrics: selectedMetrics ?? this.selectedMetrics,
       selectedEndpoints: selectedEndpoints ?? this.selectedEndpoints,
       selectedNetworkInterfaces: selectedNetworkInterfaces ?? this.selectedNetworkInterfaces,
+      useHttps: useHttps ?? this.useHttps,
     );
   }
 
